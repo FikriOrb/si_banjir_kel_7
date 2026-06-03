@@ -1,20 +1,33 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/notifications/local_notification_service.dart';
 import '../../data/models/flood_report.dart';
 import '../../data/repositories/flood_report_repository.dart';
 
+final activeGeofenceAlertProvider = StateProvider<FloodReport?>((ref) => null);
+
+final geofencingServiceProvider = Provider<GeofencingService>((ref) {
+  final reports = ref.read(floodReportRepositoryProvider);
+  final notifications = LocalNotificationService(FlutterLocalNotificationsPlugin());
+  return GeofencingService(reports: reports, notifications: notifications, ref: ref);
+});
+
 class GeofencingService {
   GeofencingService({
     required FloodReportRepository reports,
     required LocalNotificationService notifications,
+    required Ref ref,
   })  : _reports = reports,
-        _notifications = notifications;
+        _notifications = notifications,
+        _ref = ref;
 
   final FloodReportRepository _reports;
   final LocalNotificationService _notifications;
+  final Ref _ref;
   final Set<String> _notifiedReportIds = <String>{};
   StreamSubscription<Position>? _subscription;
 
@@ -47,10 +60,14 @@ class GeofencingService {
 
     for (final report in nearbyReports) {
       if (_notifiedReportIds.add(report.id)) {
+        // 1. Tampilkan notifikasi lokal sistem
         await _notifications.showFloodAlert(
           reportId: report.id,
           distanceMeters: report.distanceMeters ?? radiusMeters.toDouble(),
         );
+
+        // 2. Set provider agar UI bisa menampilkan pop up in-app elegan
+        _ref.read(activeGeofenceAlertProvider.notifier).state = report;
       }
     }
   }

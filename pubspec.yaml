@@ -19,13 +19,32 @@ dependencies:
   supabase_flutter: ^2.6.0
   xml: ^6.5.0
   flutter_dotenv: ^6.0.1
+  lucide_icons_flutter: ^3.1.14+2
+  url_launcher: ^6.3.2
+  image: ^4.8.0
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/icon/app_icon.webp
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.webp"
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/icon/app_icon.png"
+  android: true
+  ios: true
+  web: false

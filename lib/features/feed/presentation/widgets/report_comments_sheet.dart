@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../map/data/models/flood_report.dart';
 import '../../data/repositories/report_comment_repository.dart';
 
@@ -16,28 +19,49 @@ Future<void> showReportCommentsSheet(BuildContext context, FloodReport report) {
 
 class ReportCommentsSheet extends ConsumerStatefulWidget {
   final FloodReport report;
-
   const ReportCommentsSheet({super.key, required this.report});
 
   @override
   ConsumerState<ReportCommentsSheet> createState() => _ReportCommentsSheetState();
 }
 
-class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet> {
+class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
+    with SingleTickerProviderStateMixin {
   final _commentController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _focusNode = FocusNode();
   ReportComment? _replyingTo;
   bool _isSubmitting = false;
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+    _slideController.forward();
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
-
+    HapticFeedback.lightImpact();
     setState(() => _isSubmitting = true);
     try {
       await ref.read(reportCommentRepositoryProvider).submitComment(
@@ -47,13 +71,26 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet> {
           );
       ref.invalidate(reportCommentsProvider(widget.report.id));
       _commentController.clear();
-      setState(() {
-        _replyingTo = null;
+      setState(() => _replyingTo = null);
+      // Scroll to bottom after posting
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengirim: $e')),
+          SnackBar(
+            content: Text('Gagal mengirim: $e'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } finally {
@@ -66,135 +103,335 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet> {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
     final commentsAsync = ref.watch(reportCommentsProvider(widget.report.id));
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomPadding),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.7,
+    return SlideTransition(
+      position: _slideAnimation,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.78,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD7DDE5),
-                    borderRadius: BorderRadius.circular(8),
+              // ── Drag Handle ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  'Diskusi Laporan${commentsAsync.hasValue && commentsAsync.value!.isNotEmpty ? ' (${commentsAsync.value!.length})' : ''}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+
+              // ── Header ───────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(LucideIcons.messageCircle, color: AppColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: commentsAsync.maybeWhen(
+                        data: (comments) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Diskusi Laporan',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              comments.isEmpty
+                                  ? 'Belum ada komentar'
+                                  : '${comments.length} komentar',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        orElse: () => const Text(
+                          'Diskusi Laporan',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(LucideIcons.x, size: 20),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        foregroundColor: const Color(0xFF475569),
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(36, 36),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Divider(),
+
+              // ── Divider ──────────────────────────────────────
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.transparent, const Color(0xFFE2E8F0), Colors.transparent],
+                  ),
+                ),
+              ),
+
+              // ── Comments List ────────────────────────────────
               Expanded(
                 child: commentsAsync.when(
                   data: (comments) {
                     if (comments.isEmpty) {
-                      return const Center(child: Text('Belum ada diskusi. Mulai percakapan pertama!'));
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.06),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(LucideIcons.messageCircle, size: 40, color: AppColors.primary),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Belum ada diskusi',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Jadilah yang pertama berkomentar!',
+                              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      );
                     }
 
-                    // Pisahkan komentar utama dan balasan
                     final topLevel = comments.where((c) => c.parentId == null).toList();
                     final replies = comments.where((c) => c.parentId != null).toList();
 
                     return RefreshIndicator(
+                      color: AppColors.primary,
                       onRefresh: () async {
                         ref.invalidate(reportCommentsProvider(widget.report.id));
-                        // Tambahkan sedikit delay agar animasi loading terlihat natural
-                        await Future.delayed(const Duration(milliseconds: 500));
+                        await Future.delayed(const Duration(milliseconds: 400));
                       },
                       child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: topLevel.length,
-                      itemBuilder: (context, index) {
-                        final comment = topLevel[index];
-                        final commentReplies = replies.where((r) => r.parentId == comment.id).toList();
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: topLevel.length,
+                        itemBuilder: (context, index) {
+                          final comment = topLevel[index];
+                          final commentReplies =
+                              replies.where((r) => r.parentId == comment.id).toList();
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _CommentTile(
-                              comment: comment,
-                              onReply: () => setState(() => _replyingTo = comment),
-                            ),
-                            if (commentReplies.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 32.0),
-                                child: Column(
-                                  children: commentReplies.map((reply) {
-                                    return _CommentTile(
-                                      comment: reply,
-                                      isReply: true,
-                                    );
-                                  }).toList(),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _CommentTile(
+                                  comment: comment,
+                                  onReply: () {
+                                    setState(() => _replyingTo = comment);
+                                    _focusNode.requestFocus();
+                                  },
                                 ),
-                              ),
-                            const Divider(height: 24),
-                          ],
-                        );
-                      },
+                                if (commentReplies.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 48),
+                                    child: Column(
+                                      children: commentReplies.map((reply) {
+                                        return _CommentTile(
+                                          comment: reply,
+                                          isReply: true,
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  error: (error, _) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, size: 40, color: Colors.red),
+                        const SizedBox(height: 12),
+                        Text('Gagal memuat diskusi', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+                      ],
                     ),
-                  );
-                },
-                error: (error, _) => Center(child: Text('Gagal memuat diskusi: $error')),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  ),
+                  loading: () => Center(
+                    child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
+                  ),
                 ),
               ),
+
+              // ── Input Area ───────────────────────────────────
               Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 decoration: BoxDecoration(
                   color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(0, -2), blurRadius: 4),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Reply indicator
                     if (_replyingTo != null) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Membalas ${_replyingTo!.userUsername ?? _replyingTo!.userName ?? "Warga"}', style: const TextStyle(fontSize: 12, color: Colors.blue)),
-                          InkWell(
-                            onTap: () => setState(() => _replyingTo = null),
-                            child: const Icon(Icons.close, size: 16, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _commentController,
-                            decoration: InputDecoration(
-                              hintText: 'Tambahkan komentar...',
-                              isDense: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                            ),
-                            maxLines: null,
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.2),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: _isSubmitting ? null : _submitComment,
-                          icon: _isSubmitting
-                              ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.send, color: Colors.blue),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.cornerDownRight, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Membalas ${_replyingTo!.userUsername ?? _replyingTo!.userName ?? "Warga"}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => setState(() => _replyingTo = null),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(LucideIcons.x, size: 14, color: AppColors.primary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // Input row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: TextField(
+                              controller: _commentController,
+                              focusNode: _focusNode,
+                              maxLines: 4,
+                              minLines: 1,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1E293B),
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Tulis komentar...',
+                                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                isDense: true,
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        AnimatedScale(
+                          scale: _commentController.text.trim().isNotEmpty ? 1.0 : 0.85,
+                          duration: const Duration(milliseconds: 200),
+                          child: GestureDetector(
+                            onTap: _isSubmitting ? null : _submitComment,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: _commentController.text.trim().isNotEmpty
+                                      ? [AppColors.primary, AppColors.primaryLight]
+                                      : [const Color(0xFFCBD5E1), const Color(0xFFCBD5E1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: _commentController.text.trim().isNotEmpty
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withValues(alpha: 0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        )
+                                      ]
+                                    : [],
+                              ),
+                              child: Center(
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(LucideIcons.send, color: Colors.white, size: 18),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -209,7 +446,11 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet> {
   }
 }
 
-class _CommentTile extends ConsumerWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Comment Tile Widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CommentTile extends ConsumerStatefulWidget {
   final ReportComment comment;
   final VoidCallback? onReply;
   final bool isReply;
@@ -221,83 +462,214 @@ class _CommentTile extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends ConsumerState<_CommentTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _likeController;
+  late Animation<double> _likeScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _likeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _likeScale = Tween<double>(begin: 1, end: 1.4)
+        .chain(CurveTween(curve: Curves.elasticOut))
+        .animate(_likeController);
+  }
+
+  @override
+  void dispose() {
+    _likeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
     final currentUserId = currentUser?.id;
-    final isLiked = currentUserId != null && comment.likesUserIds.contains(currentUserId);
-    final isOwner = currentUserId == comment.userId;
+    final isLiked = currentUserId != null &&
+        widget.comment.likesUserIds.contains(currentUserId);
+    final isOwner = currentUserId == widget.comment.userId;
+    final double avatarRadius = widget.isReply ? 14 : 18;
 
     return GestureDetector(
-      onLongPress: isOwner ? () => _showDeleteDialog(context, ref) : null,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
+      onLongPress: isOwner
+          ? () {
+              HapticFeedback.mediumImpact();
+              _showDeleteDialog(context, ref);
+            }
+          : null,
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Avatar
             CircleAvatar(
-              radius: isReply ? 12 : 16,
-              backgroundColor: Colors.grey.shade300,
-              backgroundImage: comment.userAvatar != null ? NetworkImage(comment.userAvatar!) : null,
-              child: comment.userAvatar == null ? Icon(Icons.person, size: isReply ? 16 : 20, color: Colors.white) : null,
+              radius: avatarRadius,
+              backgroundColor: const Color(0xFFE2E8F0),
+              backgroundImage: widget.comment.userAvatar != null
+                  ? NetworkImage(widget.comment.userAvatar!)
+                  : null,
+              child: widget.comment.userAvatar == null
+                  ? Icon(LucideIcons.user,
+                      size: avatarRadius, color: const Color(0xFF94A3B8))
+                  : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
+            // Content bubble
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        comment.userName ?? 'Warga Anonim',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.zero,
+                        topRight: const Radius.circular(16),
+                        bottomLeft: const Radius.circular(16),
+                        bottomRight: const Radius.circular(16),
                       ),
-                      const SizedBox(width: 6),
-                      if (comment.userUsername != null)
-                        Text(
-                          comment.userUsername!,
-                          style: const TextStyle(color: Colors.blue, fontSize: 12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatTime(comment.createdAt.toLocal()),
-                        style: const TextStyle(color: Colors.grey, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(comment.content, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (onReply != null)
-                        InkWell(
-                          onTap: onReply,
-                          child: const Text('Balas', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
-                      if (onReply != null) const SizedBox(width: 16),
-                      InkWell(
-                        onTap: () async {
-                          await ref.read(reportCommentRepositoryProvider).toggleLike(comment.id);
-                          ref.invalidate(reportCommentsProvider(comment.reportId));
-                        },
-                        child: Row(
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Name + username + time
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
                           children: [
-                            Icon(
-                              isLiked ? Icons.favorite : Icons.favorite_border,
-                              size: 14,
-                              color: isLiked ? Colors.red : Colors.grey,
-                            ),
-                            if (comment.likesUserIds.isNotEmpty) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '${comment.likesUserIds.length}',
-                                style: TextStyle(color: isLiked ? Colors.red : Colors.grey, fontSize: 12),
+                            Text(
+                              widget.comment.userName ?? 'Warga Anonim',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: Color(0xFF0F172A),
                               ),
-                            ]
+                            ),
+                            if (widget.comment.userUsername != null)
+                              Text(
+                                widget.comment.userUsername!,
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            Text(
+                              _formatTime(widget.comment.createdAt.toLocal()),
+                              style: const TextStyle(
+                                color: Color(0xFFADB8C9),
+                                fontSize: 11,
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 5),
+                        // Comment text
+                        Text(
+                          widget.comment.content,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            height: 1.45,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Actions row
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 6),
+                    child: Row(
+                      children: [
+                        if (widget.onReply != null) ...[
+                          GestureDetector(
+                            onTap: widget.onReply,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: const Text(
+                                'Balas',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        // Like button
+                        GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            _likeController.forward(from: 0);
+                            await ref
+                                .read(reportCommentRepositoryProvider)
+                                .toggleLike(widget.comment.id);
+                            ref.invalidate(reportCommentsProvider(widget.comment.reportId));
+                          },
+                          child: ScaleTransition(
+                            scale: _likeScale,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isLiked
+                                      ? LucideIcons.heart
+                                      : LucideIcons.heart,
+                                  size: 14,
+                                  color: isLiked ? Colors.red.shade500 : const Color(0xFFADB8C9),
+                                ),
+                                if (widget.comment.likesUserIds.isNotEmpty) ...[
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${widget.comment.likesUserIds.length}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: isLiked
+                                          ? Colors.red.shade500
+                                          : const Color(0xFFADB8C9),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (isOwner) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _showDeleteDialog(context, ref),
+                            child: const Icon(
+                              LucideIcons.trash2,
+                              size: 13,
+                              color: Color(0xFFCBD5E1),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -312,16 +684,23 @@ class _CommentTile extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus Komentar?'),
-        content: const Text('Apakah kamu yakin ingin menghapus komentar ini? Balasan dari komentar ini juga akan terhapus.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Komentar?', style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text(
+          'Komentar dan semua balasannya akan dihapus secara permanen.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Hapus'),
           ),
         ],
@@ -330,23 +709,32 @@ class _CommentTile extends ConsumerWidget {
 
     if (confirm == true) {
       try {
-        await ref.read(reportCommentRepositoryProvider).deleteComment(comment.id);
-        ref.invalidate(reportCommentsProvider(comment.reportId));
+        await ref
+            .read(reportCommentRepositoryProvider)
+            .deleteComment(widget.comment.id);
+        ref.invalidate(reportCommentsProvider(widget.comment.reportId));
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menghapus: $e')),
+            SnackBar(
+              content: Text('Gagal menghapus: $e'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           );
         }
       }
     }
   }
+
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
     if (diff.inMinutes < 1) return 'Baru saja';
-    if (diff.inHours < 1) return '${diff.inMinutes}m lalu';
-    if (diff.inDays < 1) return '${diff.inHours}j lalu';
-    return '${time.day}/${time.month}';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m lalu';
+    if (diff.inHours < 24) return '${diff.inHours}j lalu';
+    if (diff.inDays < 7) return '${diff.inDays}h lalu';
+    return '${time.day}/${time.month}/${time.year}';
   }
 }

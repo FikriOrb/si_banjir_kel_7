@@ -25,6 +25,11 @@ class FloodReportRepository {
   final SupabaseClient _client;
 
   Future<List<FloodReport>> fetchActiveReports() async {
+    try {
+      // Panggil pembersihan otomatis laporan kedaluwarsa di background
+      await _client.rpc('expire_stale_flood_reports');
+    } catch (_) {}
+
     final response = await _client.rpc<List<dynamic>>('get_active_flood_reports');
     final reports = response.cast<Map<String, dynamic>>();
     
@@ -83,13 +88,22 @@ class FloodReportRepository {
           .eq('id', reportId)
           .eq('user_id', userId);
     } catch (e) {
-      // Fallback to soft-delete if RLS blocks actual delete
-      await _client
-          .from('flood_reports')
-          .update({'is_active': false})
-          .eq('id', reportId)
-          .eq('user_id', userId);
+      // Ignored
     }
+  }
+
+  Future<void> updateReport(String reportId, {required String depthLevel, String? note}) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await _client
+        .from('flood_reports')
+        .update({
+          'depth_level': depthLevel,
+          if (note != null) 'note': note,
+        })
+        .eq('id', reportId)
+        .eq('user_id', userId);
   }
 
   Future<void> voteReport(String reportId, bool isUpvote) async {

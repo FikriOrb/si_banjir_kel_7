@@ -7,7 +7,8 @@ enum WaterDepthLevel {
   ankle,
   calf,
   knee,
-  waist;
+  waist,
+  chest;
 
   String get label {
     return switch (this) {
@@ -15,6 +16,17 @@ enum WaterDepthLevel {
       WaterDepthLevel.calf => 'Betis',
       WaterDepthLevel.knee => 'Lutut',
       WaterDepthLevel.waist => 'Pinggang',
+      WaterDepthLevel.chest => 'Dada / Ekstrem',
+    };
+  }
+
+  String get estimation {
+    return switch (this) {
+      WaterDepthLevel.ankle => '10-20 cm',
+      WaterDepthLevel.calf => '30-40 cm',
+      WaterDepthLevel.knee => '50-60 cm',
+      WaterDepthLevel.waist => '80-100 cm',
+      WaterDepthLevel.chest => '> 100 cm',
     };
   }
 
@@ -24,6 +36,7 @@ enum WaterDepthLevel {
       WaterDepthLevel.calf => AppColors.medium,
       WaterDepthLevel.knee => AppColors.danger,
       WaterDepthLevel.waist => AppColors.danger,
+      WaterDepthLevel.chest => AppColors.extreme,
     };
   }
 
@@ -33,6 +46,7 @@ enum WaterDepthLevel {
       WaterDepthLevel.calf => BitmapDescriptor.hueOrange,
       WaterDepthLevel.knee => BitmapDescriptor.hueRed,
       WaterDepthLevel.waist => BitmapDescriptor.hueRed,
+      WaterDepthLevel.chest => BitmapDescriptor.hueMagenta,
     };
   }
 
@@ -56,6 +70,7 @@ class FloodReport {
     required this.downvoteCount,
     required this.expiresAt,
     required this.createdAt,
+    required this.isActive,
     this.address,
     this.note,
     this.distanceMeters,
@@ -74,6 +89,7 @@ class FloodReport {
   final int downvoteCount;
   final DateTime expiresAt;
   final DateTime createdAt;
+  final bool isActive;
   final String? address;
   final String? note;
   final double? distanceMeters;
@@ -97,6 +113,7 @@ class FloodReport {
       createdAt: DateTime.parse(
         (json['created_at'] as String?) ?? DateTime.now().toIso8601String(),
       ),
+      isActive: (json['is_active'] as bool?) ?? true,
       address: json['address'] as String?,
       note: json['note'] as String?,
       distanceMeters: (json['distance_meters'] as num?)?.toDouble(),

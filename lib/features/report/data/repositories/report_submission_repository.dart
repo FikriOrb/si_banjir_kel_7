@@ -77,4 +77,64 @@ class ReportSubmissionRepository {
 
     return reportId;
   }
+
+  Future<void> updateFullReport({
+    required String reportId,
+    required WaterDepthLevel depthLevel,
+    File? newPhoto,
+    double? newLatitude,
+    double? newLongitude,
+    String? newAddress,
+    String? note,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Pengguna harus login untuk mengedit laporan.');
+    }
+
+    String? photoUrl;
+    if (newPhoto != null) {
+      final objectPath =
+          'flood_reports/$userId/${DateTime.now().microsecondsSinceEpoch}.jpg';
+      await _client.storage.from('report-photos').upload(
+            objectPath,
+            newPhoto,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+      photoUrl = _client.storage.from('report-photos').getPublicUrl(objectPath);
+    }
+
+    String? finalAddress = newAddress;
+    if (newLatitude != null && newLongitude != null && (finalAddress == null || finalAddress.trim().isEmpty)) {
+      try {
+        final url = Uri.parse(
+            'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$newLatitude&lon=$newLongitude');
+        final geoResponse = await http.get(url, headers: {
+          'User-Agent': 'SistemPeringatanBanjir/1.0',
+        });
+        if (geoResponse.statusCode == 200) {
+          final data = jsonDecode(geoResponse.body);
+          if (data['display_name'] != null) {
+            finalAddress = data['display_name'] as String;
+          }
+        }
+      } catch (_) {
+        // Abaikan
+      }
+    }
+
+    final updates = <String, dynamic>{
+      'depth_level': depthLevel.name,
+      if (note != null) 'note': note,
+      if (photoUrl != null) 'photo_url': photoUrl,
+      if (newLatitude != null && newLongitude != null) 'location': 'POINT($newLongitude $newLatitude)',
+      if (finalAddress != null) 'address': finalAddress,
+    };
+
+    await _client
+        .from('flood_reports')
+        .update(updates)
+        .eq('id', reportId)
+        .eq('user_id', userId);
+  }
 }

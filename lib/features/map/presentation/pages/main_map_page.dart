@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -7,6 +9,7 @@ import '../../../report/presentation/widgets/report_bottom_sheet.dart';
 import '../../../weather/data/services/bmkg_weather_service.dart';
 import '../../data/models/flood_report.dart';
 import '../../data/repositories/flood_report_repository.dart';
+import '../../../../core/widgets/report_detail_bottom_sheet.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -64,7 +67,7 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
                 zoom: 12.5,
               ),
               onMapCreated: (controller) => _mapController = controller,
-              myLocationButtonEnabled: false, // Matikan tombol bawaan
+              myLocationButtonEnabled: false, 
               myLocationEnabled: true,
               padding: const EdgeInsets.only(bottom: 90, top: 20),
               markers: reports.map(_markerForReport).toSet(),
@@ -88,7 +91,7 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
                 alignment: Alignment.topCenter,
                 child: _WeatherHeader(
                   text: weatherAsync.when(
-                    data: (warning) => warning?.headline ?? 'Medan: cuaca normal',
+                    data: (warning) => warning?.headline ?? 'Medan: Cuaca Normal',
                     loading: () => 'Memuat peringatan BMKG...',
                     error: (_, __) => 'BMKG belum tersedia',
                   ),
@@ -98,21 +101,52 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
           ),
           Positioned(
             left: 16,
-            bottom: 100, // Di atas bottom navigation, di kiri
-            child: FloatingActionButton.small(
-              heroTag: 'my_location_btn',
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.blueAccent,
-              onPressed: _goToMyLocation,
-              child: const Icon(Icons.my_location),
+            bottom: 100, 
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton.small(
+                heroTag: 'my_location_btn',
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                onPressed: _goToMyLocation,
+                child: const Icon(LucideIcons.locate),
+              ),
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showReportBottomSheet(context),
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('Lapor'),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.primaryLight],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          heroTag: 'main_map_lapor_fab',
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          onPressed: () => showReportBottomSheet(context),
+          icon: const Icon(LucideIcons.mapPin),
+          label: const Text('Lapor Banjir'),
+        ),
       ),
     );
   }
@@ -122,10 +156,16 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
       markerId: MarkerId(report.id),
       position: report.latLng,
       icon: BitmapDescriptor.defaultMarkerWithHue(report.depthLevel.markerHue),
-      infoWindow: InfoWindow(
-        title: 'Banjir ${report.depthLevel.label}',
-        snippet: report.address ?? 'Laporan warga aktif',
-      ),
+      onTap: () => _showReportDetailBottomSheet(context, report),
+    );
+  }
+
+  void _showReportDetailBottomSheet(BuildContext context, FloodReport report) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReportDetailBottomSheet(report: report),
     );
   }
 }
@@ -137,30 +177,44 @@ class _WeatherHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface.withOpacity(0.88),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.thunderstorm, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                text,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.darkSurface.withOpacity(0.78),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.cloudLightning, color: Color(0xFFF59E0B), size: 20),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    letterSpacing: -0.1,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -172,6 +226,7 @@ class _MapFallback extends StatelessWidget {
 
   final String message;
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -186,3 +241,5 @@ class _MapFallback extends StatelessWidget {
     );
   }
 }
+
+

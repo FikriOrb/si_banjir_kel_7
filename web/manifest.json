@@ -1,6 +1,6 @@
 {
-    "name": "sistem_peringatan_banjir_berbasis_komunitas",
-    "short_name": "sistem_peringatan_banjir_berbasis_komunitas",
+    "name": "SiBanjir",
+    "short_name": "SiBanjir",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
