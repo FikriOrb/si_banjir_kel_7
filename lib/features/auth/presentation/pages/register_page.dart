@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/config/env.dart';
 import '../../../../core/widgets/app_notification.dart';
+import '../../../home/presentation/pages/home_shell_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -64,6 +67,60 @@ class _RegisterPageState extends State<RegisterPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Daftar Gagal: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _registerWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final webClientId = Env.googleWebClientId;
+      final iosClientId = Env.googleIosClientId;
+
+      await GoogleSignIn.instance.initialize(
+        clientId: iosClientId.isEmpty ? null : iosClientId,
+        serverClientId: webClientId.isEmpty ? null : webClientId,
+      );
+      
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      if (googleUser == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return; // User canceled
+      }
+      
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        if (webClientId.isEmpty) {
+          throw 'Google Web Client ID belum dikonfigurasi di .env';
+        }
+        throw 'ID Token tidak ditemukan.';
+      }
+
+      await Supabase.instance.client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+
+      if (mounted) {
+        AppNotification.show(
+          context,
+          type: AppNotificationType.login,
+          message: 'Berhasil mendaftar dan masuk dengan Google.',
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeShellPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Daftar Google Gagal: $e')),
         );
       }
     } finally {
@@ -249,11 +306,34 @@ class _RegisterPageState extends State<RegisterPage> {
                                 child: CircularProgressIndicator(),
                               ),
                             )
-                          else
+                          else ...[
                             FilledButton(
                               onPressed: _register,
                               child: const Text('Daftar Sekarang'),
                             ),
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              onPressed: _registerWithGoogle,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.g_mobiledata, size: 28, color: Color(0xFF64748B)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Daftar dengan Google',
+                                    style: TextStyle(color: Color(0xFF475569)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
