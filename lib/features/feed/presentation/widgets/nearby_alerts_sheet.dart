@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/report_detail_bottom_sheet.dart';
+import '../../../../core/widgets/app_notification.dart';
 import '../../../../core/providers/notification_settings_provider.dart';
 import '../../../../core/notifications/local_notification_service.dart';
 import '../providers/nearby_alerts_provider.dart';
@@ -167,11 +168,10 @@ class _NearbyAlertsBottomSheetState extends ConsumerState<NearbyAlertsBottomShee
                         final granted = await ref.read(localNotificationServiceProvider).requestPermission();
                         if (!granted) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Izin notifikasi ditolak. Anda harus mengizinkannya di pengaturan perangkat.'),
-                                backgroundColor: Colors.red,
-                              ),
+                            AppNotification.show(
+                              context,
+                              type: AppNotificationType.error,
+                              message: 'Izin notifikasi ditolak. Anda harus mengizinkannya di pengaturan perangkat.',
                             );
                           }
                           return; // Batalkan jika ditolak

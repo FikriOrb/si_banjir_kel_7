@@ -14,7 +14,7 @@ class NotificationSettingsNotifier extends StateNotifier<bool> {
   final SharedPreferences _prefs;
   static const _key = 'flood_notification_enabled';
 
-  NotificationSettingsNotifier(this._prefs) : super(_prefs.getBool(_key) ?? true);
+  NotificationSettingsNotifier(this._prefs) : super(_prefs.getBool(_key) ?? false);
 
   Future<void> toggle() async {
     final newValue = !state;

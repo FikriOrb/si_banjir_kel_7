@@ -9,12 +9,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 // Provider to fetch only the required data (created_at and depth_level)
-final communityStatisticsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final response = await Supabase.instance.client
+final communityStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final client = Supabase.instance.client;
+  final reportsResponse = await client
       .from('flood_reports')
       .select('created_at, depth_level, address, location');
+      
+  final usersResponse = await client.from('users').select('id');
   
-  return List<Map<String, dynamic>>.from(response);
+  return {
+    'reports': List<Map<String, dynamic>>.from(reportsResponse),
+    'total_users': List.from(usersResponse).length,
+  };
 });
 
 class ReportStatisticsPage extends ConsumerWidget {
@@ -34,12 +40,15 @@ class ReportStatisticsPage extends ConsumerWidget {
       ),
       body: statsAsync.when(
         data: (data) {
-          if (data.isEmpty) {
+          final reports = data['reports'] as List<Map<String, dynamic>>;
+          final totalUsers = data['total_users'] as int;
+
+          if (reports.isEmpty && totalUsers == 0) {
             return const Center(
               child: Text('Belum ada data laporan banjir.'),
             );
           }
-          return _StatisticsContent(data: data);
+          return _StatisticsContent(data: reports, totalUsers: totalUsers);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
@@ -52,8 +61,9 @@ class ReportStatisticsPage extends ConsumerWidget {
 
 class _StatisticsContent extends StatelessWidget {
   final List<Map<String, dynamic>> data;
+  final int totalUsers;
 
-  const _StatisticsContent({required this.data});
+  const _StatisticsContent({required this.data, required this.totalUsers});
 
   @override
   Widget build(BuildContext context) {
@@ -151,8 +161,14 @@ class _StatisticsContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Total Reports Card
-          _buildSummaryCard(data.length),
+          // Total Reports & Users Cards
+          Row(
+            children: [
+              Expanded(child: _buildSummaryCard('Total Laporan', '${data.length}', LucideIcons.fileText)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildSummaryCard('Total Pengguna', '$totalUsers', LucideIcons.users)),
+            ],
+          ),
           const SizedBox(height: 16),
           
           // Bar Chart Card
@@ -384,9 +400,9 @@ class _StatisticsContent extends StatelessWidget {
       );
   }
 
-  Widget _buildSummaryCard(int total) {
+  Widget _buildSummaryCard(String title, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(16),
@@ -398,33 +414,27 @@ class _StatisticsContent extends StatelessWidget {
           )
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(LucideIcons.users, color: Colors.white, size: 28),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Total Kontribusi Komunitas',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$total Laporan',
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          )
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

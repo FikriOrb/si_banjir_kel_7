@@ -79,10 +79,12 @@ class HistoryPage extends ConsumerWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      ref.read(targetReportIdProvider.notifier).state = report.id;
-                      ref.read(homeTabIndexProvider.notifier).state = 0;
-                    },
+                    onTap: isActive
+                        ? () {
+                            ref.read(targetReportIdProvider.notifier).state = report.id;
+                            ref.read(homeTabIndexProvider.notifier).state = 0;
+                          }
+                        : null,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                     child: Column(
