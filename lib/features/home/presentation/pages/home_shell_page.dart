@@ -11,6 +11,7 @@ import '../../../map/presentation/pages/main_map_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../map/data/repositories/flood_report_repository.dart';
 import '../../../report/presentation/widgets/report_bottom_sheet.dart';
+import '../../../../core/providers/navigation_providers.dart';
 
 class HomeShellPage extends ConsumerStatefulWidget {
   const HomeShellPage({super.key});
@@ -20,8 +21,6 @@ class HomeShellPage extends ConsumerStatefulWidget {
 }
 
 class _HomeShellPageState extends ConsumerState<HomeShellPage> {
-  int _currentIndex = 0;
-
   final List<Widget> _pages = [
     const FeedPage(),
     const MainMapPage(),
@@ -209,9 +208,7 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                             child: FilledButton(
                               onPressed: () {
                                 Navigator.pop(context);
-                                setState(() {
-                                  _currentIndex = 1;
-                                });
+                                ref.read(homeTabIndexProvider.notifier).state = 1; // Pindah ke peta
                               },
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColors.primary,
@@ -255,18 +252,18 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
       orElse: () => 0,
     );
 
+    final currentIndex = ref.watch(homeTabIndexProvider);
+
     return Scaffold(
       body: Row(
         children: [
           if (isTablet)
             NavigationRail(
-              selectedIndex: _currentIndex,
+              selectedIndex: currentIndex,
               elevation: 1,
               backgroundColor: Colors.white,
               onDestinationSelected: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
+                ref.read(homeTabIndexProvider.notifier).state = index;
               },
               labelType: NavigationRailLabelType.all,
               selectedIconTheme: const IconThemeData(color: Color(0xFF1E40AF)), // AppColors.primary
@@ -317,7 +314,7 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
             const VerticalDivider(thickness: 1, width: 1, color: Color(0xFFE2E8F0)),
           Expanded(
             child: _FadeIndexedStack(
-              index: _currentIndex,
+              index: currentIndex,
               children: _pages,
             ),
           ),
@@ -338,11 +335,14 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
               ),
               child: NavigationBar(
                 elevation: 0,
-                selectedIndex: _currentIndex,
+                selectedIndex: currentIndex >= 2 ? currentIndex + 1 : currentIndex,
                 onDestinationSelected: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
+                  if (index == 2) {
+                    showReportBottomSheet(context);
+                    return;
+                  }
+                  final targetIndex = index > 2 ? index - 1 : index;
+                  ref.read(homeTabIndexProvider.notifier).state = targetIndex;
                 },
                 destinations: [
                   const NavigationDestination(
@@ -365,6 +365,19 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                     ),
                     label: 'Peta',
                   ),
+                  NavigationDestination(
+                    icon: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryLight],
+                        ),
+                      ),
+                      child: const Icon(LucideIcons.camera, color: Colors.white),
+                    ),
+                    label: 'Lapor',
+                  ),
                   const NavigationDestination(
                     icon: Icon(LucideIcons.history),
                     selectedIcon: Icon(LucideIcons.history),
@@ -378,29 +391,6 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                 ],
               ),
             ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryLight],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          onPressed: () => showReportBottomSheet(context),
-          icon: const Icon(LucideIcons.camera),
-          label: const Text('Kirim Laporan'),
-        ),
-      ),
     );
   }
 }

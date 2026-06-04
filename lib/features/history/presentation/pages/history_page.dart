@@ -10,6 +10,7 @@ import '../../../map/data/repositories/flood_report_repository.dart';
 import '../../../map/data/models/flood_report.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/providers/navigation_providers.dart';
 import '../../../report/data/repositories/report_submission_repository.dart';
 import '../../../report/presentation/pages/location_picker_page.dart';
 
@@ -76,140 +77,159 @@ class HistoryPage extends ConsumerWidget {
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      ref.read(targetReportIdProvider.notifier).state = report.id;
+                      ref.read(homeTabIndexProvider.notifier).state = 0;
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: report.depthLevel.color.withValues(alpha: 0.08),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            LucideIcons.droplets,
-                            color: report.depthLevel.color,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Banjir ${report.depthLevel.label} (± ${report.depthLevel.estimation})',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14.5,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                (report.address != null && report.address!.isNotEmpty && report.address != 'null')
-                                    ? report.address!
-                                    : 'Titik Lokasi GPS',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  // Status tag
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isActive ? Colors.green.shade50 : Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: isActive ? Colors.green.shade200 : Colors.grey.shade200,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isActive ? 'Laporan Aktif' : 'Laporan Tidak Aktif',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: isActive ? Colors.green.shade700 : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    report.createdAt.toLocal().toString().split('.')[0].substring(0, 16),
-                                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isActive) Row(
-                          mainAxisSize: MainAxisSize.min,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            IconButton(
-                              icon: const Icon(LucideIcons.edit3, color: Colors.blueAccent),
-                              tooltip: 'Edit Laporan',
-                              onPressed: () => _showEditReportSheet(context, ref, report),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: report.depthLevel.color.withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                LucideIcons.droplets,
+                                color: report.depthLevel.color,
+                                size: 22,
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(LucideIcons.trash2, color: Colors.redAccent),
-                              tooltip: 'Hapus Laporan',
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Hapus Laporan?'),
-                                    content: const Text('Apakah kamu yakin ingin menghapus laporan banjir ini dari publik?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, false),
-                                        child: const Text('Batal'),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Banjir ${report.depthLevel.label} (± ${report.depthLevel.estimation})',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14.5,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    (report.address != null && report.address!.isNotEmpty && report.address != 'null')
+                                        ? report.address!
+                                        : 'Titik Lokasi GPS',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      // Status tag
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: isActive ? Colors.green.shade50 : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isActive ? Colors.green.shade200 : Colors.grey.shade200,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isActive ? 'Laporan Aktif' : 'Laporan Tidak Aktif',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: isActive ? Colors.green.shade700 : Colors.grey.shade600,
+                                          ),
+                                        ),
                                       ),
-                                      FilledButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                                        child: const Text('Hapus'),
+                                      Text(
+                                        report.createdAt.toLocal().toString().split('.')[0].substring(0, 16),
+                                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                                       ),
                                     ],
                                   ),
-                                );
-
-                                if (confirm == true) {
-                                  try {
-                                    await ref.read(floodReportRepositoryProvider).deleteReport(report.id);
-                                    ref.invalidate(historyReportsProvider);
-                                    ref.invalidate(activeFloodReportsProvider);
-                                    if (context.mounted) {
-                                      AppNotification.show(
-                                        context,
-                                        type: AppNotificationType.deleteHistory,
-                                        message: 'Laporan banjir berhasil dihapus dari riwayat.',
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      AppNotification.show(
-                                        context,
-                                        type: AppNotificationType.error,
-                                        message: 'Gagal menghapus laporan: $e',
-                                      );
-                                    }
-                                  }
-                                }
-                              },
+                                ],
+                              ),
                             ),
                           ],
                         ),
+                        if (isActive) ...[
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                icon: const Icon(LucideIcons.edit3, size: 16, color: Colors.blueAccent),
+                                label: const Text('Edit', style: TextStyle(color: Colors.blueAccent)),
+                                onPressed: () => _showEditReportSheet(context, ref, report),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent),
+                                label: const Text('Hapus', style: TextStyle(color: Colors.redAccent)),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Hapus Laporan?'),
+                                      content: const Text('Apakah kamu yakin ingin menghapus laporan banjir ini dari publik?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Batal'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                          child: const Text('Hapus'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    try {
+                                      await ref.read(floodReportRepositoryProvider).deleteReport(report.id);
+                                      ref.invalidate(historyReportsProvider);
+                                      ref.invalidate(activeFloodReportsProvider);
+                                      if (context.mounted) {
+                                        AppNotification.show(
+                                          context,
+                                          type: AppNotificationType.deleteHistory,
+                                          message: 'Laporan banjir berhasil dihapus dari riwayat.',
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        AppNotification.show(
+                                          context,
+                                          type: AppNotificationType.error,
+                                          message: 'Gagal menghapus laporan: $e',
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                );
+                ),
+              );
               },
             ),
           );

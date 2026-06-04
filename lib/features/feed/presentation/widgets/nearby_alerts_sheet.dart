@@ -5,6 +5,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/report_detail_bottom_sheet.dart';
+import '../../../../core/providers/notification_settings_provider.dart';
+import '../../../../core/notifications/local_notification_service.dart';
 import '../providers/nearby_alerts_provider.dart';
 
 class NearbyAlertsBottomSheet extends ConsumerStatefulWidget {
@@ -75,6 +77,7 @@ class _NearbyAlertsBottomSheetState extends ConsumerState<NearbyAlertsBottomShee
   Widget build(BuildContext context) {
     final position = ref.watch(currentAlertPositionProvider);
     final nearbyReports = ref.watch(nearbyAlertReportsProvider);
+    final isNotificationEnabled = ref.watch(notificationSettingsProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -150,7 +153,52 @@ class _NearbyAlertsBottomSheetState extends ConsumerState<NearbyAlertsBottomShee
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Terima notifikasi laporan masuk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF64748B))),
+                  Switch(
+                    value: isNotificationEnabled,
+                    onChanged: (val) async {
+                      if (val == true) {
+                        final granted = await ref.read(localNotificationServiceProvider).requestPermission();
+                        if (!granted) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Izin notifikasi ditolak. Anda harus mengizinkannya di pengaturan perangkat.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return; // Batalkan jika ditolak
+                        }
+                      }
+                      ref.read(notificationSettingsProvider.notifier).toggle();
+                    },
+                    activeColor: AppColors.primary,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                '*Fitur notifikasi 24 jam (FCM) masih dalam tahap pemeliharaan. Saat ini peringatan hanya masuk saat aplikasi sedang dibuka atau berjalan di latar.',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF94A3B8),
+                  height: 1.3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
             // Content List

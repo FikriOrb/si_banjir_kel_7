@@ -11,15 +11,75 @@ import '../widgets/report_comments_sheet.dart';
 import 'report_map_detail_page.dart';
 import '../widgets/nearby_alerts_sheet.dart';
 import '../providers/nearby_alerts_provider.dart';
+import '../../../../core/providers/navigation_providers.dart';
+import '../../../../core/providers/notification_settings_provider.dart';
+import '../../../../core/notifications/local_notification_service.dart';
 
-class FeedPage extends ConsumerWidget {
+class FeedPage extends ConsumerStatefulWidget {
   const FeedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends ConsumerState<FeedPage> {
+  final Map<String, GlobalKey> _itemKeys = {};
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<String?>(targetReportIdProvider, (prev, next) {
+      if (next != null) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          final key = _itemKeys[next];
+          if (key != null && key.currentContext != null) {
+            Scrollable.ensureVisible(
+              key.currentContext!,
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeInOutBack,
+              alignment: 0.2, // Posisikan agak ke atas sedikit
+            );
+            
+            // Hapus target ID setelah beberapa detik agar efek menghilang perlahan
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) ref.read(targetReportIdProvider.notifier).state = null;
+            });
+          }
+        });
+      }
+    });
+
+    // Listener untuk notifikasi laporan terdekat baru
+    ref.listen<List<FloodReport>>(nearbyAlertReportsProvider, (previous, next) {
+      if (previous == null || previous.isEmpty) return; // Jangan tembak saat pertama kali muat
+
+      final isEnabled = ref.read(notificationSettingsProvider);
+      if (!isEnabled) return;
+
+      // Cari laporan baru di 'next' yang belum ada di 'previous'
+      final previousIds = previous.map((r) => r.id).toSet();
+      final newReports = next.where((r) => !previousIds.contains(r.id)).toList();
+
+      for (final report in newReports) {
+        // Tembakkan notifikasi lokal
+        final distance = report.distanceMeters ?? 0.0;
+        ref.read(localNotificationServiceProvider).showFloodAlert(
+          reportId: report.id,
+          distanceMeters: distance,
+        );
+      }
+    });
+
     final reportsAsync = ref.watch(activeFloodReportsProvider);
     final nearbyReports = ref.watch(nearbyAlertReportsProvider);
     final alertsCount = nearbyReports.length;
+    final isNotificationEnabled = ref.watch(notificationSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -28,9 +88,12 @@ class FeedPage extends ConsumerWidget {
           IconButton(
             icon: Badge(
               label: Text('$alertsCount'),
-              isLabelVisible: alertsCount > 0,
+              isLabelVisible: isNotificationEnabled && alertsCount > 0,
               backgroundColor: AppColors.medium,
-              child: const Icon(LucideIcons.bell),
+              child: Icon(
+                isNotificationEnabled ? LucideIcons.bell : LucideIcons.bellOff,
+                color: isNotificationEnabled ? null : Colors.grey,
+              ),
             ),
             tooltip: 'Notifikasi Terdekat',
             onPressed: () {
@@ -78,16 +141,36 @@ class FeedPage extends ConsumerWidget {
             onRefresh: () async {
               ref.invalidate(activeFloodReportsProvider);
             },
-            child: ListView.builder(
+            child: SingleChildScrollView(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                final report = reports[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  children: reports.map((report) {
+                    _itemKeys[report.id] ??= GlobalKey();
+                    final key = _itemKeys[report.id]!;
+                    final isTarget = ref.watch(targetReportIdProvider) == report.id;
+
+                    return AnimatedContainer(
+                      key: key,
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeInOut,
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isTarget ? AppColors.primary : Colors.transparent,
+                          width: isTarget ? 3.0 : 0.0,
+                        ),
+                        boxShadow: isTarget ? [
+                          BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 16, spreadRadius: 4)
+                        ] : [],
+                      ),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
                     onTap: () {
                       // Halaman detail
                     },
@@ -103,7 +186,7 @@ class FeedPage extends ConsumerWidget {
                               GestureDetector(
                                 onTap: report.userId == Supabase.instance.client.auth.currentUser?.id
                                     ? null
-                                    : () => _showReportPostDialog(context, report),
+                                    : () => showReportPostDialog(context, report),
                                 child: SizedBox(
                                   width: 48,
                                   height: 48,
@@ -161,6 +244,8 @@ class FeedPage extends ConsumerWidget {
                                   children: [
                                     Text(
                                       report.reporterName ?? 'Warga Anonim',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 14.5,
@@ -171,12 +256,16 @@ class FeedPage extends ConsumerWidget {
                                     Row(
                                       children: [
                                         if (report.reporterUsername != null) ...[
-                                          Text(
-                                            report.reporterUsername!,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppColors.primary,
-                                              fontWeight: FontWeight.w600,
+                                          Flexible(
+                                            child: Text(
+                                              report.reporterUsername!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 6),
@@ -385,9 +474,12 @@ class FeedPage extends ConsumerWidget {
                           ),
                       ],
                     ),
-                  ),
-                );
-              },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           );
         },
@@ -723,7 +815,7 @@ String _formatCount(int count) {
 // Report Post Dialog
 // ─────────────────────────────────────────────────────────────
 
-void _showReportPostDialog(BuildContext context, FloodReport report) {
+void showReportPostDialog(BuildContext context, FloodReport report) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,

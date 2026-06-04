@@ -67,19 +67,46 @@ class ReportCommentRepository {
         .eq('report_id', reportId)
         .order('created_at', ascending: true)
         .asyncMap((events) async {
-          // Fetch full data with users info for this report
+        try {
           final response = await _client
               .from('report_comments')
               .select('*, users(full_name, username, avatar_url)')
               .eq('report_id', reportId)
-              .order('created_at', ascending: true);
+              .eq('is_active', true);
               
           final comments = (response as List<dynamic>)
               .cast<Map<String, dynamic>>()
               .map(ReportComment.fromJson)
               .toList();
+
+          // Algoritma Sorting: Like terbanyak paling atas, jika sama baru urutkan berdasarkan waktu
+          comments.sort((a, b) {
+            final likeCompare = b.likesUserIds.length.compareTo(a.likesUserIds.length);
+            if (likeCompare != 0) return likeCompare;
+            return a.createdAt.compareTo(b.createdAt);
+          });
           return comments;
-        });
+        } catch (e) {
+          // Fallback jika migrasi SQL (is_active) belum dijalankan oleh teman user
+          final response = await _client
+              .from('report_comments')
+              .select('*, users(full_name, username, avatar_url)')
+              .eq('report_id', reportId);
+              
+          final comments = (response as List<dynamic>)
+              .cast<Map<String, dynamic>>()
+              .map(ReportComment.fromJson)
+              .toList();
+
+          // Algoritma Sorting: Like terbanyak paling atas, jika sama baru urutkan berdasarkan waktu
+          comments.sort((a, b) {
+            final likeCompare = b.likesUserIds.length.compareTo(a.likesUserIds.length);
+            if (likeCompare != 0) return likeCompare;
+            return a.createdAt.compareTo(b.createdAt);
+          });
+          return comments;
+        }
+      });
   }
 
   Future<void> submitComment({
@@ -104,6 +131,21 @@ class ReportCommentRepository {
 
     await _client.rpc('toggle_comment_like', params: {
       'p_comment_id': commentId,
+    });
+  }
+
+  Future<void> reportComment({
+    required String commentId,
+    required String category,
+    String? note,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Silakan login terlebih dahulu.');
+
+    await _client.rpc('report_comment', params: {
+      'p_comment_id': commentId,
+      'p_category': category,
+      if (note != null && note.trim().isNotEmpty) 'p_note': note.trim(),
     });
   }
 

@@ -1,4 +1,9 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final localNotificationServiceProvider = Provider<LocalNotificationService>((ref) {
+  return LocalNotificationService(FlutterLocalNotificationsPlugin());
+});
 
 class LocalNotificationService {
   LocalNotificationService(this._notifications);
@@ -13,7 +18,7 @@ class LocalNotificationService {
   );
 
   Future<void> initialize() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@mipmap/launcher_icon');
     const ios = DarwinInitializationSettings();
 
     await _notifications.initialize(
@@ -46,5 +51,23 @@ class LocalNotificationService {
         iOS: DarwinNotificationDetails(),
       ),
     );
+  }
+
+  Future<bool> requestPermission() async {
+    final androidImplementation = _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      final granted = await androidImplementation.requestNotificationsPermission();
+      if (granted != null) return granted;
+    }
+
+    final iosImplementation = _notifications
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    if (iosImplementation != null) {
+      final granted = await iosImplementation.requestPermissions(alert: true, badge: true, sound: true);
+      if (granted != null) return granted;
+    }
+
+    return true; // Asumsi default granted untuk OS versi lama
   }
 }

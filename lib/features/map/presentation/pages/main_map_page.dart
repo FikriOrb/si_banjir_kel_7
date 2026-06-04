@@ -124,30 +124,6 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
           ),
         ],
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryLight],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          heroTag: 'main_map_lapor_fab',
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          onPressed: () => showReportBottomSheet(context),
-          icon: const Icon(LucideIcons.mapPin),
-          label: const Text('Lapor Banjir'),
-        ),
-      ),
     );
   }
 

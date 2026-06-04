@@ -31,15 +31,19 @@ class _RegisterPageState extends State<RegisterPage> {
     final confirmPassword = _confirmPasswordController.text.trim();
 
     if (fullName.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Semua kolom harus diisi!')),
+      AppNotification.show(
+        context,
+        type: AppNotificationType.error,
+        message: 'Semua kolom harus diisi!',
       );
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password tidak cocok!')),
+      AppNotification.show(
+        context,
+        type: AppNotificationType.error,
+        message: 'Password tidak cocok!',
       );
       return;
     }
@@ -65,68 +69,18 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Daftar Gagal: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _registerWithGoogle() async {
-    setState(() => _isLoading = true);
-    try {
-      final webClientId = Env.googleWebClientId;
-      final iosClientId = Env.googleIosClientId;
-
-      await GoogleSignIn.instance.initialize(
-        clientId: iosClientId.isEmpty ? null : iosClientId,
-        serverClientId: webClientId.isEmpty ? null : webClientId,
-      );
-      
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      if (googleUser == null) {
-        if (mounted) setState(() => _isLoading = false);
-        return; // User canceled
-      }
-      
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        if (webClientId.isEmpty) {
-          throw 'Google Web Client ID belum dikonfigurasi di .env';
-        }
-        throw 'ID Token tidak ditemukan.';
-      }
-
-      await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-      );
-
-      if (mounted) {
         AppNotification.show(
           context,
-          type: AppNotificationType.login,
-          message: 'Berhasil mendaftar dan masuk dengan Google.',
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeShellPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Daftar Google Gagal: $e')),
+          type: AppNotificationType.error,
+          message: 'Daftar Gagal: $e',
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+
 
   @override
   void dispose() {
@@ -310,28 +264,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             FilledButton(
                               onPressed: _register,
                               child: const Text('Daftar Sekarang'),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton(
-                              onPressed: _registerWithGoogle,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.g_mobiledata, size: 28, color: Color(0xFF64748B)),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Daftar dengan Google',
-                                    style: TextStyle(color: Color(0xFF475569)),
-                                  ),
-                                ],
-                              ),
                             ),
                           ],
                         ],

@@ -24,8 +24,10 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan Password tidak boleh kosong!')),
+      AppNotification.show(
+        context,
+        type: AppNotificationType.error,
+        message: 'Email dan Password tidak boleh kosong!',
       );
       return;
     }
@@ -48,8 +50,10 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login Gagal: $e')),
+        AppNotification.show(
+          context,
+          type: AppNotificationType.error,
+          message: 'Login Gagal: $e',
         );
       }
     } finally {
@@ -89,6 +93,37 @@ class _LoginPageState extends State<LoginPage> {
         idToken: idToken,
       );
 
+      // Sinkronisasi foto profil agar tidak tertimpa oleh foto Google
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        try {
+          final userData = await Supabase.instance.client
+              .from('users')
+              .select('avatar_url')
+              .eq('id', user.id)
+              .maybeSingle();
+
+          final dbAvatarUrl = userData?['avatar_url'] as String?;
+          final metaAvatarUrl = user.userMetadata?['avatar_url'] as String?;
+
+          if (dbAvatarUrl != null && dbAvatarUrl.contains('report-photos')) {
+            // Jika sudah punya foto custom di database, paksa auth metadata pakai foto custom
+            if (metaAvatarUrl != dbAvatarUrl) {
+              await Supabase.instance.client.auth.updateUser(
+                UserAttributes(data: {'avatar_url': dbAvatarUrl}),
+              );
+            }
+          } else if (metaAvatarUrl != null && metaAvatarUrl != dbAvatarUrl) {
+            // Jika belum punya foto custom, tapi login google bawa foto, simpan ke database
+            await Supabase.instance.client.from('users').update({
+              'avatar_url': metaAvatarUrl,
+            }).eq('id', user.id);
+          }
+        } catch (_) {
+          // Abaikan jika terjadi error saat sinkronisasi (misal RLS)
+        }
+      }
+
       if (mounted) {
         AppNotification.show(
           context,
@@ -101,8 +136,10 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login Google Gagal: $e')),
+        AppNotification.show(
+          context,
+          type: AppNotificationType.error,
+          message: 'Login Google Gagal: $e',
         );
       }
     } finally {

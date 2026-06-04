@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_notification.dart';
 import '../../../map/data/models/flood_report.dart';
 import '../../data/repositories/report_comment_repository.dart';
 
@@ -35,6 +36,8 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
 
+  DateTime? _lastCommentTime;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +64,21 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
+
+    if (_lastCommentTime != null) {
+      final diff = DateTime.now().difference(_lastCommentTime!);
+      if (diff.inSeconds < 15) {
+        final remaining = 15 - diff.inSeconds;
+        AppNotification.show(
+          context,
+          type: AppNotificationType.error,
+          title: 'Anti-Spam',
+          message: 'Tunggu $remaining detik sebelum komentar lagi.',
+        );
+        return;
+      }
+    }
+
     HapticFeedback.lightImpact();
     setState(() => _isSubmitting = true);
     try {
@@ -69,6 +87,8 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
             content: text,
             parentId: _replyingTo?.id,
           );
+      
+      _lastCommentTime = DateTime.now(); // Catat waktu komentar berhasil terkirim
       ref.invalidate(reportCommentsProvider(widget.report.id));
       _commentController.clear();
       setState(() => _replyingTo = null);
@@ -84,13 +104,11 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengirim: $e'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        AppNotification.show(
+          context,
+          type: AppNotificationType.error,
+          title: 'Gagal',
+          message: 'Gagal mengirim: $e',
         );
       }
     } finally {
@@ -498,12 +516,10 @@ class _CommentTileState extends ConsumerState<_CommentTile>
     final double avatarRadius = widget.isReply ? 14 : 18;
 
     return GestureDetector(
-      onLongPress: isOwner
-          ? () {
-              HapticFeedback.mediumImpact();
-              _showDeleteDialog(context, ref);
-            }
-          : null,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        _showContextMenu(context, ref, isOwner);
+      },
       child: Container(
         margin: const EdgeInsets.only(top: 10),
         child: Row(
@@ -657,17 +673,6 @@ class _CommentTileState extends ConsumerState<_CommentTile>
                             ),
                           ),
                         ),
-                        if (isOwner) ...[
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => _showDeleteDialog(context, ref),
-                            child: const Icon(
-                              LucideIcons.trash2,
-                              size: 13,
-                              color: Color(0xFFCBD5E1),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -715,17 +720,256 @@ class _CommentTileState extends ConsumerState<_CommentTile>
         ref.invalidate(reportCommentsProvider(widget.comment.reportId));
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal menghapus: $e'),
-              backgroundColor: Colors.red.shade700,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            title: 'Gagal',
+            message: 'Gagal menghapus: $e',
           );
         }
       }
     }
+  }
+
+  void _showContextMenu(BuildContext context, WidgetRef ref, bool isOwner) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.15), // Transparan gelap elegan
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          width: 230,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.onReply != null) ...[
+                _buildContextMenuItem(
+                  icon: LucideIcons.messageSquare,
+                  label: 'Balas Pesan',
+                  color: const Color(0xFF334155),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onReply!();
+                  },
+                ),
+                Divider(height: 1, color: Colors.grey.shade100),
+              ],
+              if (isOwner)
+                _buildContextMenuItem(
+                  icon: LucideIcons.trash2,
+                  label: 'Hapus Pesan',
+                  color: Colors.red.shade600,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showDeleteDialog(context, ref);
+                  },
+                )
+              else
+                _buildContextMenuItem(
+                  icon: LucideIcons.flag,
+                  label: 'Laporkan Pesan',
+                  color: Colors.red.shade600,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showReportDialog(context, ref);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContextMenuItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportDialog(BuildContext context, WidgetRef ref) {
+    String? selectedCategory;
+    final noteController = TextEditingController();
+    bool isSubmitting = false;
+
+    final categories = [
+      'Spam atau Promosi (Judol, Iklan)',
+      'Ujaran Kebencian / Kasar',
+      'Pelecehan / Bullying',
+      'Informasi Palsu / Hoax',
+      'Lainnya',
+    ];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(LucideIcons.flag, color: Colors.red, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Laporkan Komentar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Kategori Pelanggaran:', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155), fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: categories.map((cat) {
+                        final isSelected = selectedCategory == cat;
+                        return ChoiceChip(
+                          label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : const Color(0xFF64748B))),
+                          selected: isSelected,
+                          selectedColor: Colors.red.shade600,
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99), side: const BorderSide(color: Colors.transparent)),
+                          onSelected: (selected) {
+                            if (selected) setState(() => selectedCategory = cat);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Catatan Tambahan (Opsional):', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155), fontSize: 13)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Tuliskan detail lebih lanjut jika diperlukan...',
+                        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+              ),
+              FilledButton(
+                onPressed: (selectedCategory == null || isSubmitting)
+                    ? null
+                    : () async {
+                        setState(() => isSubmitting = true);
+                        try {
+                          await ref.read(reportCommentRepositoryProvider).reportComment(
+                                commentId: widget.comment.id,
+                                category: selectedCategory!,
+                                note: noteController.text,
+                              );
+                          if (context.mounted) {
+                            Navigator.pop(context); // Tutup dialog
+                            AppNotification.show(
+                              context,
+                              type: AppNotificationType.submitReport,
+                              title: 'Berhasil',
+                              message: 'Laporan Anda telah diterima.',
+                            );
+                          }
+                        } on PostgrestException catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            AppNotification.show(
+                              context,
+                              type: AppNotificationType.error,
+                              title: 'Peringatan',
+                              message: e.message,
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            AppNotification.show(
+                              context,
+                              type: AppNotificationType.error,
+                              title: 'Gagal',
+                              message: 'Gagal melaporkan komentar. Silakan coba lagi.',
+                            );
+                          }
+                        } finally {
+                          if (context.mounted) setState(() => isSubmitting = false);
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  disabledBackgroundColor: Colors.red.shade200,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Kirim Laporan'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   String _formatTime(DateTime time) {

@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/providers/notification_settings_provider.dart';
+
 import 'app.dart';
 import 'core/config/env.dart';
 import 'core/notifications/local_notification_service.dart';
@@ -24,5 +27,12 @@ Future<void> main() async {
     FlutterLocalNotificationsPlugin(),
   ).initialize();
 
-  runApp(const ProviderScope(child: FloodWarningApp()));
+  final sharedPrefs = await SharedPreferences.getInstance();
+
+  runApp(ProviderScope(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(sharedPrefs),
+    ],
+    child: const FloodWarningApp(),
+  ));
 }

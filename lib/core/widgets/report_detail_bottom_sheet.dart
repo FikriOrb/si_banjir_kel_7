@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/app_theme.dart';
 import '../../features/map/data/models/flood_report.dart';
 import '../../features/map/data/repositories/flood_report_repository.dart';
 import '../../features/feed/data/repositories/report_comment_repository.dart';
 import '../../features/feed/presentation/widgets/report_comments_sheet.dart';
-import '../../features/feed/presentation/pages/feed_page.dart' show FullScreenImagePage;
+import '../../features/feed/presentation/pages/feed_page.dart' show FullScreenImagePage, showReportPostDialog;
 
 class ReportDetailBottomSheet extends ConsumerWidget {
   final FloodReport report;
@@ -65,16 +66,58 @@ class ReportDetailBottomSheet extends ConsumerWidget {
               // Header (User profile and status badge)
               Row(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary.withOpacity(0.15), width: 1.5),
-                    ),
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFFF1F5F9),
-                      backgroundImage: report.reporterAvatar != null ? NetworkImage(report.reporterAvatar!) : null,
-                      child: report.reporterAvatar == null ? const Icon(LucideIcons.user, color: Color(0xFF64748B)) : null,
+                  GestureDetector(
+                    onTap: report.userId == Supabase.instance.client.auth.currentUser?.id
+                        ? null
+                        : () => showReportPostDialog(context, report),
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Stack(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primary.withOpacity(0.15), width: 1.5),
+                            ),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              backgroundImage: report.reporterAvatar != null ? NetworkImage(report.reporterAvatar!) : null,
+                              child: report.reporterAvatar == null ? const Icon(LucideIcons.user, color: Color(0xFF64748B)) : null,
+                            ),
+                          ),
+                          // ⓘ badge at bottom-right (only for other people's posts)
+                          if (report.userId != Supabase.instance.client.auth.currentUser?.id)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.08),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    LucideIcons.info,
+                                    size: 10,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -84,6 +127,8 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                       children: [
                         Text(
                           report.reporterName ?? 'Warga Anonim',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14.5,
@@ -91,11 +136,14 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (report.reporterUsername != null) ...[
                               Text(
                                 report.reporterUsername!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AppColors.primary,

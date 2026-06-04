@@ -581,7 +581,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showLogoutConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => _CustomDialog(
+      builder: (dialogContext) => _CustomDialog(
         icon: LucideIcons.logOut,
         iconColor: Colors.red,
         title: 'Konfirmasi Keluar',
@@ -595,7 +595,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFFCBD5E1)),
                 shape: RoundedRectangleBorder(
@@ -611,7 +611,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: FilledButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 await Supabase.instance.client.auth.signOut();
                 if (context.mounted) {
                   AppNotification.show(
@@ -649,9 +649,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (stateContext, setState) {
             return _CustomDialog(
               icon: LucideIcons.user,
               iconColor: AppColors.primary,
@@ -685,7 +685,7 @@ class _ProfilePageState extends State<ProfilePage> {
               actions: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: isLoading ? null : () => Navigator.pop(context),
+                    onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
                       shape: RoundedRectangleBorder(
@@ -741,7 +741,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               }).eq('id', userId);
 
                               if (context.mounted) {
-                                Navigator.pop(context);
+                                Navigator.pop(dialogContext);
                                 AppNotification.show(
                                   context,
                                   type: AppNotificationType.updateProfile,
@@ -757,7 +757,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 );
                               }
                             } finally {
-                              if (context.mounted) {
+                              if (stateContext.mounted) {
                                 setState(() => isLoading = false);
                               }
                             }
@@ -798,9 +798,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (stateContext, setState) {
             return _CustomDialog(
               icon: LucideIcons.lock,
               iconColor: AppColors.primary,
@@ -874,7 +874,7 @@ class _ProfilePageState extends State<ProfilePage> {
               actions: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: isLoading ? null : () => Navigator.pop(context),
+                    onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
                       shape: RoundedRectangleBorder(
@@ -951,7 +951,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               );
 
                               if (context.mounted) {
-                                Navigator.pop(context);
+                                Navigator.pop(dialogContext);
                                 AppNotification.show(
                                   context,
                                   type: AppNotificationType.updatePassword,
@@ -969,7 +969,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 );
                               }
                             } finally {
-                              if (context.mounted) {
+                              if (stateContext.mounted) {
                                 setState(() => isLoading = false);
                               }
                             }
