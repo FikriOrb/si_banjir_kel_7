@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -511,6 +512,7 @@ class _CommentTileState extends ConsumerState<_CommentTile>
     with SingleTickerProviderStateMixin {
   late AnimationController _likeController;
   late Animation<double> _likeScale;
+  final GlobalKey _tileKey = GlobalKey();
 
   @override
   void initState() {
@@ -534,17 +536,26 @@ class _CommentTileState extends ConsumerState<_CommentTile>
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
     final currentUserId = currentUser?.id;
-    final isLiked = currentUserId != null &&
-        widget.comment.likesUserIds.contains(currentUserId);
     final isOwner = currentUserId == widget.comment.userId;
-    final double avatarRadius = widget.isReply ? 14 : 18;
 
     return GestureDetector(
+      key: _tileKey,
       onLongPress: () {
         HapticFeedback.mediumImpact();
         _showContextMenu(context, ref, isOwner);
       },
-      child: Container(
+      child: _buildCommentContent(context),
+    );
+  }
+
+  Widget _buildCommentContent(BuildContext context, {bool showActions = true}) {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentUserId = currentUser?.id;
+    final isLiked = currentUserId != null &&
+        widget.comment.likesUserIds.contains(currentUserId);
+    final double avatarRadius = widget.isReply ? 14 : 18;
+
+    return Container(
         margin: const EdgeInsets.only(top: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,8 +655,9 @@ class _CommentTileState extends ConsumerState<_CommentTile>
                     ),
                   ),
                   // Actions row
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, top: 6),
+                  if (showActions)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 6),
                     child: Row(
                       children: [
                         if (widget.onReply != null) ...[
@@ -716,7 +728,6 @@ class _CommentTileState extends ConsumerState<_CommentTile>
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -767,63 +778,113 @@ class _CommentTileState extends ConsumerState<_CommentTile>
   }
 
   void _showContextMenu(BuildContext context, WidgetRef ref, bool isOwner) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.15), // Transparan gelap elegan
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          width: 230,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+    final RenderBox renderBox = _tileKey.currentContext!.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final position = renderBox.localToGlobal(Offset.zero);
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final double menuHeight = (widget.onReply != null ? 56.0 : 0.0) + 56.0 + 8.0; 
+    
+    bool showBelow = (position.dy + size.height + menuHeight + 20) < screenHeight;
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.transparent,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Blur background
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(color: Colors.black.withValues(alpha: 0.4)),
+                    ),
+                  ),
+                  // Original comment highlighted
+                  Positioned(
+                    top: position.dy,
+                    left: position.dx,
+                    width: size.width,
+                    child: IgnorePointer(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: _buildCommentContent(context, showActions: false),
+                      ),
+                    ),
+                  ),
+                  // Context Menu
+                  Positioned(
+                    top: showBelow ? (position.dy + size.height + 12) : null,
+                    bottom: showBelow ? null : (screenHeight - position.dy + 12),
+                    left: position.dx + 48,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        width: 240,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.onReply != null) ...[
+                              _buildContextMenuItem(
+                                icon: LucideIcons.messageSquare,
+                                label: 'Balas pesan',
+                                color: const Color(0xFF334155),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  widget.onReply!();
+                                },
+                              ),
+                              Divider(height: 1, color: Colors.grey.shade100),
+                            ],
+                            if (isOwner)
+                              _buildContextMenuItem(
+                                icon: LucideIcons.trash2,
+                                label: 'Hapus pesan',
+                                color: Colors.red.shade600,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _showDeleteDialog(context, ref);
+                                },
+                              )
+                            else
+                              _buildContextMenuItem(
+                                icon: LucideIcons.flag,
+                                label: 'Laporkan pesan',
+                                color: Colors.red.shade600,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _showReportDialog(context, ref);
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.onReply != null) ...[
-                _buildContextMenuItem(
-                  icon: LucideIcons.messageSquare,
-                  label: 'Balas Pesan',
-                  color: const Color(0xFF334155),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onReply!();
-                  },
-                ),
-                Divider(height: 1, color: Colors.grey.shade100),
-              ],
-              if (isOwner)
-                _buildContextMenuItem(
-                  icon: LucideIcons.trash2,
-                  label: 'Hapus Pesan',
-                  color: Colors.red.shade600,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showDeleteDialog(context, ref);
-                  },
-                )
-              else
-                _buildContextMenuItem(
-                  icon: LucideIcons.flag,
-                  label: 'Laporkan Pesan',
-                  color: Colors.red.shade600,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showReportDialog(context, ref);
-                  },
-                ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -836,9 +897,9 @@ class _CommentTileState extends ConsumerState<_CommentTile>
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Row(
           children: [
             Icon(icon, size: 20, color: color),

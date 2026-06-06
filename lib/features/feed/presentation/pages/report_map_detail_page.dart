@@ -81,7 +81,7 @@ class _ReportLocationMapPageState extends State<ReportLocationMapPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lokasi Banjir'),
+        title: Text(report.reportType == 'flood' ? 'Lokasi Banjir' : 'Lokasi Evakuasi'),
       ),
       body: Stack(
         children: [
@@ -95,10 +95,12 @@ class _ReportLocationMapPageState extends State<ReportLocationMapPage> {
                 markerId: MarkerId(report.id),
                 position: LatLng(report.latitude, report.longitude),
                 infoWindow: InfoWindow(
-                  title: 'Banjir ${report.depthLevel.label}',
-                  snippet: report.address ?? 'Lokasi banjir',
+                  title: report.reportType == 'flood' ? 'Banjir ${report.depthLevel.label}' : 'Tempat Evakuasi Darurat',
+                  snippet: report.address ?? (report.reportType == 'flood' ? 'Lokasi banjir' : 'Lokasi evakuasi'),
                 ),
-                icon: BitmapDescriptor.defaultMarkerWithHue(report.depthLevel.markerHue),
+                icon: report.reportType == 'flood'
+                    ? BitmapDescriptor.defaultMarkerWithHue(report.depthLevel.markerHue)
+                    : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
               ),
             },
             onMapCreated: (GoogleMapController controller) {

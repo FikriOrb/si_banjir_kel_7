@@ -71,6 +71,7 @@ class FloodReport {
     required this.expiresAt,
     required this.createdAt,
     required this.isActive,
+    this.reportType = 'flood',
     this.address,
     this.note,
     this.distanceMeters,
@@ -90,6 +91,7 @@ class FloodReport {
   final DateTime expiresAt;
   final DateTime createdAt;
   final bool isActive;
+  final String reportType;
   final String? address;
   final String? note;
   final double? distanceMeters;
@@ -114,6 +116,7 @@ class FloodReport {
         (json['created_at'] as String?) ?? DateTime.now().toIso8601String(),
       ),
       isActive: (json['is_active'] as bool?) ?? true,
+      reportType: json['report_type'] as String? ?? 'flood',
       address: json['address'] as String?,
       note: json['note'] as String?,
       distanceMeters: (json['distance_meters'] as num?)?.toDouble(),

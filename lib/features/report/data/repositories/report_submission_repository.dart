@@ -22,6 +22,7 @@ class ReportSubmissionRepository {
     required double longitude,
     required WaterDepthLevel depthLevel,
     required File photo,
+    String reportType = 'flood',
     String? address,
     String? note,
   }) async {
@@ -72,6 +73,7 @@ class ReportSubmissionRepository {
         'p_photo_url': photoUrl,
         'p_address': finalAddress,
         'p_note': note,
+        'p_report_type': reportType,
       },
     );
 

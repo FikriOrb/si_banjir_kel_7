@@ -168,13 +168,13 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // Depth badge
+                  // Status badge (Depth for flood, 'Evakuasi Darurat' for evacuation)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: report.depthLevel.color.withOpacity(0.08),
+                      color: report.reportType == 'flood' ? report.depthLevel.color.withOpacity(0.08) : Colors.amber.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: report.depthLevel.color.withOpacity(0.24), width: 1.2),
+                      border: Border.all(color: report.reportType == 'flood' ? report.depthLevel.color.withOpacity(0.24) : Colors.amber.withOpacity(0.24), width: 1.2),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -183,15 +183,15 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                           width: 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: report.depthLevel.color,
+                            color: report.reportType == 'flood' ? report.depthLevel.color : Colors.amber,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${report.depthLevel.label} (± ${report.depthLevel.estimation})',
+                          report.reportType == 'flood' ? report.depthLevel.label : 'Evakuasi Darurat',
                           style: TextStyle(
-                            color: report.depthLevel.color,
+                            color: report.reportType == 'flood' ? report.depthLevel.color : Colors.amber.shade700,
                             fontWeight: FontWeight.w900,
                             fontSize: 11,
                           ),
@@ -233,7 +233,9 @@ class ReportDetailBottomSheet extends ConsumerWidget {
               Text(
                 (report.note != null && report.note!.isNotEmpty && report.note != 'null') 
                   ? report.note! 
-                  : 'Warga melaporkan genangan air setinggi ${report.depthLevel.label} di lokasi ini. Harap berhati-hati saat melintas.',
+                  : (report.reportType == 'flood' 
+                      ? 'Warga melaporkan genangan air setinggi ${report.depthLevel.label} di lokasi ini. Harap berhati-hati saat melintas.'
+                      : 'Warga menambahkan tempat evakuasi darurat di lokasi ini.'),
                 style: const TextStyle(
                   fontSize: 13.5, 
                   height: 1.45,
@@ -296,7 +298,7 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                     builder: (context, value, _) {
                       return LinearProgressIndicator(
                         value: value,
-                        backgroundColor: Colors.green.shade100,
+                        backgroundColor: report.reportType == 'flood' ? Colors.green.shade100 : Colors.red.shade100,
                         color: Colors.amber,
                         minHeight: 6,
                       );
@@ -313,9 +315,9 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                     child: MapVoteButton(
                       onPressed: () => _handleVote(context, ref, report, true),
                       onLongPress: () => _handleRemoveVote(context, ref, report),
-                      icon: LucideIcons.alertTriangle,
+                      icon: report.reportType == 'flood' ? LucideIcons.alertTriangle : LucideIcons.mapPin,
                       color: Colors.amber,
-                      label: 'Masih Banjir',
+                      label: report.reportType == 'flood' ? 'Masih Banjir' : 'Masih Nampung',
                       count: report.upvoteCount,
                     ),
                   ),
@@ -324,9 +326,9 @@ class ReportDetailBottomSheet extends ConsumerWidget {
                     child: MapVoteButton(
                       onPressed: () => _handleVote(context, ref, report, false),
                       onLongPress: () => _handleRemoveVote(context, ref, report),
-                      icon: LucideIcons.checkCircle,
-                      color: AppColors.safe,
-                      label: 'Sudah Surut',
+                      icon: report.reportType == 'flood' ? LucideIcons.checkCircle : LucideIcons.slash,
+                      color: report.reportType == 'flood' ? AppColors.safe : Colors.red,
+                      label: report.reportType == 'flood' ? 'Sudah Surut' : 'Sudah Penuh',
                       count: report.downvoteCount,
                     ),
                   ),
@@ -342,7 +344,9 @@ class ReportDetailBottomSheet extends ConsumerWidget {
   }
 
   Future<void> _handleVote(BuildContext context, WidgetRef ref, FloodReport report, bool isUpvote) async {
-    final voteLabel = isUpvote ? 'Masih Banjir' : 'Sudah Surut';
+    final voteLabel = isUpvote 
+        ? (report.reportType == 'flood' ? 'Masih Banjir' : 'Masih Nampung')
+        : (report.reportType == 'flood' ? 'Sudah Surut' : 'Sudah Penuh');
     
     final confirm = await showDialog<bool>(
       context: context,

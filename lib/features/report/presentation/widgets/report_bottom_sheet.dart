@@ -37,6 +37,7 @@ class ReportBottomSheet extends ConsumerStatefulWidget {
 class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
   File? _photo;
   WaterDepthLevel _selectedDepth = WaterDepthLevel.ankle;
+  String _reportType = 'flood';
   bool _isSubmitting = false;
 
   final _noteController = TextEditingController();
@@ -85,9 +86,9 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Lapor Genangan Banjir',
-                style: TextStyle(
+              Text(
+                _reportType == 'flood' ? 'Lapor Genangan Banjir' : 'Lapor Tempat Evakuasi',
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF1E293B),
@@ -96,16 +97,9 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
               ),
               const SizedBox(height: 16),
 
-              // 1. FOTO
-              _PhotoSelectionBox(
-                photo: _photo,
-                onCapture: _capturePhoto,
-              ),
-              const SizedBox(height: 20),
-
-              // 2. KETINGGIAN AIR
+              // 1. JENIS LAPORAN
               const Text(
-                'Estimasi Ketinggian Air',
+                'Jenis Laporan',
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
@@ -113,6 +107,68 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
                 ),
               ),
               const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'flood',
+                    label: Text('Banjir'),
+                    icon: Icon(LucideIcons.waves),
+                  ),
+                  ButtonSegment(
+                    value: 'evacuation',
+                    label: Text('Evakuasi Darurat'),
+                    icon: Icon(LucideIcons.home),
+                  ),
+                ],
+                selected: {_reportType},
+                onSelectionChanged: (Set<String> newSelection) {
+                  setState(() => _reportType = newSelection.first);
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary.withOpacity(0.15);
+                    }
+                    return Colors.white;
+                  }),
+                  side: WidgetStateProperty.all(
+                    BorderSide(color: const Color(0xFFE2E8F0)),
+                  ),
+                  iconColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary;
+                    }
+                    return const Color(0xFF475569);
+                  }),
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary;
+                    }
+                    return const Color(0xFF475569);
+                  }),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 2. FOTO
+              _PhotoSelectionBox(
+                photo: _photo,
+                reportType: _reportType,
+                onCapture: _capturePhoto,
+              ),
+              const SizedBox(height: 20),
+
+              // 3. KETINGGIAN AIR (Hanya untuk Banjir)
+              if (_reportType == 'flood') ...[
+                const Text(
+                  'Estimasi Ketinggian Air',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+                const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -136,8 +192,9 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
+              ],
 
-              // 3. LOKASI MANUAL
+              // 4. LOKASI MANUAL
               const Text(
                 'Lokasi Kejadian',
                 style: TextStyle(
@@ -362,9 +419,9 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Kirim Laporan?'),
-          content: const Text(
-              'Apakah informasi ketinggian air dan foto sudah benar?'),
+          title: Text(_reportType == 'flood' ? 'Kirim Laporan?' : 'Kirim Evakuasi?'),
+          content: Text(
+              _reportType == 'flood' ? 'Apakah informasi ketinggian air dan foto sudah benar?' : 'Apakah foto dan lokasi Tempat Evakuasi sudah benar?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -415,6 +472,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
             .select('id')
             .eq('user_id', currentUserId)
             .eq('is_active', true)
+            .eq('report_type', _reportType)
             .limit(1);
 
         if (existingActiveReports.isNotEmpty) {
@@ -423,7 +481,9 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
               context,
               type: AppNotificationType.error,
               message:
-                  'Anda masih memiliki laporan aktif! Tunggu hingga laporan sebelumnya selesai.',
+                  _reportType == 'flood' 
+                    ? 'Anda masih memiliki laporan banjir yang aktif! Tunggu hingga laporan sebelumnya selesai.'
+                    : 'Anda sudah mendaftarkan tempat evakuasi. Hanya diperbolehkan satu tempat aktif.',
             );
             setState(() => _isSubmitting = false);
           }
@@ -440,12 +500,14 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
             radiusMeters: 100,
           );
 
-      if (nearbyReports.isNotEmpty) {
+      final nearbySameTypeReports = nearbyReports.where((r) => r.reportType == _reportType).toList();
+
+      if (nearbySameTypeReports.isNotEmpty) {
         AppNotification.show(
           context,
           type: AppNotificationType.error,
           message:
-              'Sudah ada laporan di radius 100m. Bantu konfirmasi "Masih Banjir" di Beranda.',
+              _reportType == 'flood' ? 'Sudah ada laporan di radius 100m. Bantu konfirmasi "Masih Banjir" di Beranda.' : 'Sudah ada tempat evakuasi dilaporkan di radius ini.',
         );
         setState(() {
           _isSubmitting = false;
@@ -458,6 +520,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
             longitude: finalLongitude,
             depthLevel: _selectedDepth,
             photo: photo,
+            reportType: _reportType,
             note: finalNote.isNotEmpty ? finalNote : null,
           );
 
@@ -468,7 +531,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
         AppNotification.show(
           context,
           type: AppNotificationType.submitReport,
-          message: 'Laporan genangan air Anda berhasil dikirim ke sistem.',
+          message: _reportType == 'flood' ? 'Laporan genangan air Anda berhasil dikirim ke sistem.' : 'Laporan Tempat Evakuasi berhasil ditambahkan.',
         );
         Navigator.of(context).pop();
       }
@@ -491,10 +554,12 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
 class _PhotoSelectionBox extends StatelessWidget {
   const _PhotoSelectionBox({
     required this.photo,
+    required this.reportType,
     required this.onCapture,
   });
 
   final File? photo;
+  final String reportType;
   final VoidCallback onCapture;
 
   @override
@@ -535,9 +600,9 @@ class _PhotoSelectionBox extends StatelessWidget {
                             size: 28, color: AppColors.primary),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Ambil Foto Bukti Banjir',
-                        style: TextStyle(
+                      Text(
+                        reportType == 'flood' ? 'Ambil Foto Bukti Banjir' : 'Ambil Foto Tempat Evakuasi',
+                        style: const TextStyle(
                             color: Color(0xFF475569),
                             fontWeight: FontWeight.w800,
                             fontSize: 13),

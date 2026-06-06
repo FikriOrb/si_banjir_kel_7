@@ -50,6 +50,7 @@ final nearbyAlertReportsProvider = Provider.autoDispose<List<FloodReport>>((ref)
           reporterName: report.reporterName,
           reporterUsername: report.reporterUsername,
           reporterAvatar: report.reporterAvatar,
+          reportType: report.reportType,
         );
       }).toList();
     },

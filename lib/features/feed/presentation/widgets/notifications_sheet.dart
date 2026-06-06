@@ -325,19 +325,19 @@ class _NearbyAlertsTabState extends ConsumerState<_NearbyAlertsTab> {
                           leading: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: report.depthLevel.color.withOpacity(0.1),
+                              color: report.reportType == 'flood' ? report.depthLevel.color.withOpacity(0.1) : Colors.amber.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              LucideIcons.alertTriangle,
-                              color: report.depthLevel.color,
+                              report.reportType == 'flood' ? LucideIcons.alertTriangle : LucideIcons.mapPin,
+                              color: report.reportType == 'flood' ? report.depthLevel.color : Colors.amber,
                               size: 18,
                             ),
                           ),
                           title: Text(
                             (report.address != null && report.address!.isNotEmpty && report.address != 'null')
                                 ? report.address!
-                                : 'Titik Banjir Warga',
+                                : (report.reportType == 'flood' ? 'Titik Banjir Warga' : 'Tempat Evakuasi Darurat'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -356,17 +356,19 @@ class _NearbyAlertsTabState extends ConsumerState<_NearbyAlertsTab> {
                                   color: AppColors.primary,
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Container(width: 3, height: 3, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFCBD5E1))),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Level ${report.depthLevel.label}',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: report.depthLevel.color,
+                              if (report.reportType == 'flood') ...[
+                                const SizedBox(width: 6),
+                                Container(width: 3, height: 3, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFCBD5E1))),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Level ${report.depthLevel.label}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: report.depthLevel.color,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                           trailing: const Icon(LucideIcons.chevronRight, size: 16, color: Color(0xFF94A3B8)),

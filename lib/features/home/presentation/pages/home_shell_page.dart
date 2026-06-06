@@ -82,28 +82,28 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                   children: [
                     Container(
                       height: 12,
-                      decoration: const BoxDecoration(
-                        color: AppColors.medium,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      decoration: BoxDecoration(
+                        color: report.reportType == 'flood' ? AppColors.medium : Colors.amber.shade500,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                       ),
                     ),
                     const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.medium.withOpacity(0.1),
+                        color: (report.reportType == 'flood' ? AppColors.medium : Colors.amber.shade500).withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        LucideIcons.alertOctagon,
-                        color: AppColors.medium,
+                      child: Icon(
+                        report.reportType == 'flood' ? LucideIcons.alertOctagon : LucideIcons.mapPin,
+                        color: report.reportType == 'flood' ? AppColors.medium : Colors.amber.shade600,
                         size: 44,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Banjir Dekat Anda!',
-                      style: TextStyle(
+                    Text(
+                      report.reportType == 'flood' ? 'Banjir Dekat Anda!' : 'Tempat Evakuasi Dekat Anda!',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF0F172A),
@@ -113,11 +113,13 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'Terdeteksi titik banjir di sekitar lokasi Anda. Harap berhati-hati.',
+                        report.reportType == 'flood' 
+                            ? 'Terdeteksi titik banjir di sekitar lokasi Anda. Harap berhati-hati.' 
+                            : 'Terdapat tempat evakuasi darurat di sekitar lokasi Anda.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
-                          color: const Color(0xFF475569),
+                          color: Color(0xFF475569),
                           height: 1.4,
                         ),
                       ),
@@ -151,21 +153,23 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(LucideIcons.droplets, color: report.depthLevel.color, size: 16),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Ketinggian: ${report.depthLevel.label}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: report.depthLevel.color,
+                          if (report.reportType == 'flood') ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(LucideIcons.droplets, color: report.depthLevel.color, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Ketinggian: ${report.depthLevel.label}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: report.depthLevel.color,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                           if (report.distanceMeters != null) ...[
                             const SizedBox(height: 6),
                             Row(

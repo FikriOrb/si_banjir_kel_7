@@ -1,5 +1,6 @@
 import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,51 @@ class MainMapPage extends ConsumerStatefulWidget {
 class _MainMapPageState extends ConsumerState<MainMapPage> {
   static const _medanCenter = LatLng(3.5952, 98.6722);
   GoogleMapController? _mapController;
+  BitmapDescriptor? _evacuationIcon;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCustomIcon();
+  }
+
+  Future<void> _initCustomIcon() async {
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    const double size = 100.0; // Ukuran dibesarkan sedikit
+
+    // Draw Stick (tiang pin)
+    final Paint stickPaint = Paint()
+      ..color = const Color(0xFF2B3A4A) // Dark blue/slate stick
+      ..style = PaintingStyle.fill;
+    
+    // Tiang lebih ramping
+    final RRect stick = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size / 2 - 3, size * 0.4, 6, size * 0.6), 
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(stick, stickPaint);
+
+    // Draw Head (kepala bulat)
+    final Paint headPaint = Paint()..color = Colors.amber.shade500;
+    // Lingkaran di atas tiang, radius diperkecil
+    canvas.drawCircle(Offset(size / 2, size * 0.3), size * 0.3, headPaint);
+    
+    // Draw Highlight (pantulan cahaya)
+    final Paint highlightPaint = Paint()
+      ..color = Colors.white.withOpacity(0.35)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(size * 0.65, size * 0.15), size * 0.07, highlightPaint);
+
+    final ui.Image image = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    
+    if (mounted && byteData != null) {
+      setState(() {
+        _evacuationIcon = BitmapDescriptor.fromBytes(byteData.buffer.asUint8List());
+      });
+    }
+  }
 
   Future<void> _goToMyLocation() async {
     try {
@@ -132,7 +178,9 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
     return Marker(
       markerId: MarkerId(report.id),
       position: report.latLng,
-      icon: BitmapDescriptor.defaultMarkerWithHue(report.depthLevel.markerHue),
+      icon: report.reportType == 'evacuation' 
+          ? (_evacuationIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange)) 
+          : BitmapDescriptor.defaultMarkerWithHue(report.depthLevel.markerHue),
       onTap: () => _showReportDetailBottomSheet(context, report),
     );
   }
@@ -157,7 +205,7 @@ class _WeatherHeader extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(

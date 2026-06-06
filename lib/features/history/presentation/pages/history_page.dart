@@ -98,12 +98,12 @@ class HistoryPage extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: report.depthLevel.color.withOpacity(0.08),
+                                color: report.reportType == 'flood' ? report.depthLevel.color.withOpacity(0.08) : Colors.amber.withOpacity(0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                LucideIcons.droplets,
-                                color: report.depthLevel.color,
+                                report.reportType == 'flood' ? LucideIcons.droplets : LucideIcons.mapPin,
+                                color: report.reportType == 'flood' ? report.depthLevel.color : Colors.amber,
                                 size: 22,
                               ),
                             ),
@@ -113,7 +113,9 @@ class HistoryPage extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Banjir ${report.depthLevel.label} (± ${report.depthLevel.estimation})',
+                                    report.reportType == 'flood' 
+                                      ? 'Banjir ${report.depthLevel.label} (± ${report.depthLevel.estimation})'
+                                      : 'Tempat Evakuasi Darurat',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 14.5,
