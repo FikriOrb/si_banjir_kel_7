@@ -44,8 +44,8 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _navigateToNext() async {
-    // Berikan delay 2.5 detik agar logo branding terlihat jelas
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // Berikan delay singkat 1.2 detik agar logo branding terlihat jelas lalu masuk
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
 
     final session = Supabase.instance.client.auth.currentSession;

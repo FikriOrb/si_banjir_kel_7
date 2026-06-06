@@ -14,6 +14,15 @@ import 'core/notifications/local_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Show a blank UI to immediately dismiss the native splash screen
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(backgroundColor: Color(0xFF0F172A)),
+    ),
+  );
+
   await dotenv.load(fileName: ".env");
 
   if (Env.hasSupabaseConfig) {

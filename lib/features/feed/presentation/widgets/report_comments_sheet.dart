@@ -519,11 +519,18 @@ class _CommentTileState extends ConsumerState<_CommentTile>
     super.initState();
     _likeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 400),
     );
-    _likeScale = Tween<double>(begin: 1, end: 1.4)
-        .chain(CurveTween(curve: Curves.elasticOut))
-        .animate(_likeController);
+    _likeScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.4).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.4, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 60,
+      ),
+    ]).animate(_likeController);
   }
 
   @override
@@ -685,28 +692,39 @@ class _CommentTileState extends ConsumerState<_CommentTile>
                         GestureDetector(
                           onTap: () async {
                             HapticFeedback.lightImpact();
-                            _likeController.forward(from: 0);
+                            if (!_likeController.isAnimating) {
+                              _likeController.forward(from: 0);
+                            }
                             await ref
                                 .read(reportCommentRepositoryProvider)
                                 .toggleLike(widget.comment.id);
                             ref.invalidate(reportCommentsProvider(widget.comment.reportId));
                           },
-                          child: ScaleTransition(
-                            scale: _likeScale,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isLiked
-                                      ? LucideIcons.heart
-                                      : LucideIcons.heart,
-                                  size: 14,
-                                  color: isLiked ? Colors.red.shade500 : const Color(0xFFADB8C9),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ScaleTransition(
+                                scale: _likeScale,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  transitionBuilder: (Widget child, Animation<double> animation) {
+                                    return ScaleTransition(scale: animation, child: child);
+                                  },
+                                  child: Icon(
+                                    isLiked ? Icons.favorite : Icons.favorite_border,
+                                    key: ValueKey<bool>(isLiked),
+                                    size: 14,
+                                    color: isLiked ? Colors.red.shade500 : const Color(0xFFADB8C9),
+                                  ),
                                 ),
-                                if (widget.comment.likesUserIds.isNotEmpty) ...[
-                                  const SizedBox(width: 4),
-                                  Text(
+                              ),
+                              if (widget.comment.likesUserIds.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Text(
                                     '${widget.comment.likesUserIds.length}',
+                                    key: ValueKey<int>(widget.comment.likesUserIds.length),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -715,9 +733,9 @@ class _CommentTileState extends ConsumerState<_CommentTile>
                                           : const Color(0xFFADB8C9),
                                     ),
                                   ),
-                                ],
+                                ),
                               ],
-                            ),
+                            ],
                           ),
                         ),
                       ],

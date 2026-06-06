@@ -9,12 +9,14 @@ import 'package:sistem_peringatan_banjir_berbasis_komunitas/features/map/data/mo
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+final statisticsModeProvider = StateProvider<String>((ref) => 'flood');
+
 // Provider to fetch only the required data (created_at and depth_level)
 final communityStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final client = Supabase.instance.client;
   final reportsResponse = await client
       .from('flood_reports')
-      .select('created_at, depth_level, address, location');
+      .select('created_at, depth_level, address, location, report_type');
       
   final usersResponse = await client.from('users').select('id');
   
@@ -30,14 +32,43 @@ class ReportStatisticsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(communityStatisticsProvider);
+    final currentMode = ref.watch(statisticsModeProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Statistik Banjir Komunitas',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(currentMode == 'flood' ? 'Statistik Banjir' : 'Statistik Evakuasi',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: TextButton.icon(
+              onPressed: () {
+                ref.read(statisticsModeProvider.notifier).state = 
+                    currentMode == 'flood' ? 'evacuation' : 'flood';
+              },
+              icon: Icon(
+                currentMode == 'flood' ? LucideIcons.mapPin : LucideIcons.alertOctagon, 
+                size: 16,
+                color: currentMode == 'flood' ? Colors.amber.shade700 : AppColors.primary,
+              ),
+              label: Text(
+                currentMode == 'flood' ? 'Evakuasi Darurat' : 'Laporan Banjir',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: currentMode == 'flood' ? Colors.amber.shade700 : AppColors.primary,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: (currentMode == 'flood' ? Colors.amber : AppColors.primary).withOpacity(0.1),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              ),
+            ),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -48,16 +79,18 @@ class ReportStatisticsPage extends ConsumerWidget {
             final reports = data['reports'] as List<Map<String, dynamic>>;
             final totalUsers = data['total_users'] as int;
 
-            if (reports.isEmpty && totalUsers == 0) {
+            final filteredReports = reports.where((r) => (r['report_type'] ?? 'flood') == currentMode).toList();
+
+            if (filteredReports.isEmpty && totalUsers == 0) {
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                children: const [
-                  SizedBox(height: 200),
-                  Center(child: Text('Belum ada data laporan banjir.')),
+                children: [
+                  const SizedBox(height: 200),
+                  Center(child: Text('Belum ada data ${currentMode == 'flood' ? 'laporan banjir' : 'evakuasi darurat'}.')),
                 ],
               );
             }
-            return _StatisticsContent(data: reports, totalUsers: totalUsers);
+            return _StatisticsContent(data: filteredReports, totalUsers: totalUsers, mode: currentMode);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => ListView(
@@ -78,8 +111,9 @@ class ReportStatisticsPage extends ConsumerWidget {
 class _StatisticsContent extends StatelessWidget {
   final List<Map<String, dynamic>> data;
   final int totalUsers;
+  final String mode;
 
-  const _StatisticsContent({required this.data, required this.totalUsers});
+  const _StatisticsContent({required this.data, required this.totalUsers, required this.mode});
 
   @override
   Widget build(BuildContext context) {
@@ -93,12 +127,16 @@ class _StatisticsContent extends StatelessWidget {
     // 2. Data untuk Bar Chart (Laporan per Hari selama 7 hari terakhir)
     final now = DateTime.now();
     final weekData = List.filled(7, 0); // indeks 0 = hari ini, 1 = kemarin, ... 6 = 6 hari lalu
+    final hourlyData = List.filled(24, 0); // untuk Line Chart Waktu Rawan
 
     for (var row in data) {
       final dateStr = row['created_at'] as String?;
       if (dateStr == null) continue;
       final date = DateTime.tryParse(dateStr)?.toLocal();
       if (date == null) continue;
+
+      // Group by hour
+      hourlyData[date.hour]++;
 
       // Reset waktu ke 00:00 untuk perbandingan akurat
       final cleanNow = DateTime(now.year, now.month, now.day);
@@ -180,16 +218,16 @@ class _StatisticsContent extends StatelessWidget {
           // Total Reports & Users Cards
           Row(
             children: [
-              Expanded(child: _buildSummaryCard('Total Laporan', '${data.length}', LucideIcons.fileText)),
+              Expanded(child: _buildSummaryCard(mode == 'flood' ? 'Total Laporan' : 'Total Evakuasi', '${data.length}', mode == 'flood' ? LucideIcons.fileText : LucideIcons.mapPin, mode == 'flood' ? AppColors.primary : Colors.amber.shade600)),
               const SizedBox(width: 16),
-              Expanded(child: _buildSummaryCard('Total Pengguna', '$totalUsers', LucideIcons.users)),
+              Expanded(child: _buildSummaryCard('Total Pengguna', '$totalUsers', LucideIcons.users, const Color(0xFF64748B))),
             ],
           ),
           const SizedBox(height: 16),
           
           // Bar Chart Card
           _buildChartCard(
-            title: 'Tren Laporan 7 Hari Terakhir',
+            title: mode == 'flood' ? 'Tren Laporan 7 Hari Terakhir' : 'Tren Evakuasi 7 Hari Terakhir',
             icon: LucideIcons.barChart2,
             iconColor: Colors.blue.shade700,
             iconBg: Colors.blue.shade50,
@@ -234,7 +272,9 @@ class _StatisticsContent extends StatelessWidget {
                         BarChartRodData(
                           toY: e.value.toDouble(),
                           gradient: LinearGradient(
-                            colors: [AppColors.primary.withValues(alpha: 0.6), AppColors.primary],
+                            colors: mode == 'flood' 
+                                ? [AppColors.primary.withValues(alpha: 0.6), AppColors.primary]
+                                : [Colors.amber.shade300, Colors.amber.shade500],
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
                           ),
@@ -256,9 +296,74 @@ class _StatisticsContent extends StatelessWidget {
           
           const SizedBox(height: 16),
 
-          // Pie Chart Card
-          _buildChartCard(
-            title: 'Persentase Kedalaman Air',
+          // Waktu Rawan Chart Card (Only for flood mode)
+          if (mode == 'flood') ...[
+            _buildChartCard(
+              title: 'Waktu Rawan Banjir',
+              icon: LucideIcons.clock,
+              iconColor: Colors.teal.shade700,
+              iconBg: Colors.teal.shade50,
+              child: AspectRatio(
+                aspectRatio: 1.5,
+                child: LineChart(
+                  LineChartData(
+                    minY: 0,
+                    gridData: const FlGridData(show: false),
+                    borderData: FlBorderData(show: false),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 4,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text('${value.toInt().toString().padLeft(2, '0')}:00', 
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: hourlyData.asMap().entries.map((e) {
+                          return FlSpot(e.key.toDouble(), e.value.toDouble());
+                        }).toList(),
+                        isCurved: true,
+                        preventCurveOverShooting: true,
+                        color: Colors.teal.shade500,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.teal.withValues(alpha: 0.3),
+                              Colors.teal.withValues(alpha: 0.0),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Pie Chart Card (Only for flood mode)
+          if (mode == 'flood') ...[
+            _buildChartCard(
+              title: 'Persentase Kedalaman Air',
             icon: LucideIcons.pieChart,
             iconColor: Colors.purple.shade700,
             iconBg: Colors.purple.shade50,
@@ -304,23 +409,23 @@ class _StatisticsContent extends StatelessWidget {
                             Text(level.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
                           ],
                         ),
-                      );
-                    }).toList(),
-                  )
-                ],
+                        );
+                      }).toList(),
+                    )
+                  ],
+                ),
               ),
             ),
-          ),
-          
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
 
           // Top Locations Chart
           if (topLocations.isNotEmpty)
             _buildChartCard(
-              title: '5 Lokasi Paling Rawan',
+              title: mode == 'flood' ? '5 Lokasi Paling Rawan' : '5 Lokasi Evakuasi',
               icon: LucideIcons.mapPin,
-              iconColor: Colors.red.shade700,
-              iconBg: Colors.red.shade50,
+              iconColor: mode == 'flood' ? Colors.red.shade700 : Colors.amber.shade700,
+              iconBg: mode == 'flood' ? Colors.red.shade50 : Colors.amber.shade50,
               child: Column(
                 children: topLocations.map((entry) {
                   final percentage = entry.value / maxLocationCount;
@@ -377,11 +482,17 @@ class _StatisticsContent extends StatelessWidget {
                                   height: 16,
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
-                                      colors: [Colors.orange.shade400, Colors.red.shade500],
+                                      colors: mode == 'flood'
+                                          ? [Colors.orange.shade400, Colors.red.shade500]
+                                          : [Colors.amber.shade400, Colors.amber.shade600],
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                     boxShadow: [
-                                      BoxShadow(color: Colors.red.shade200.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 2))
+                                      BoxShadow(
+                                        color: (mode == 'flood' ? Colors.red.shade200 : Colors.amber.shade200).withValues(alpha: 0.5), 
+                                        blurRadius: 6, 
+                                        offset: const Offset(0, 2)
+                                      )
                                     ]
                                   ),
                                 ),
@@ -416,15 +527,15 @@ class _StatisticsContent extends StatelessWidget {
       );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon) {
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: color,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           )
@@ -436,7 +547,7 @@ class _StatisticsContent extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: Colors.white, size: 24),
