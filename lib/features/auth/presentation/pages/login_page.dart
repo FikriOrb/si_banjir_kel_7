@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -53,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
         AppNotification.show(
           context,
           type: AppNotificationType.error,
-          message: 'Login Gagal: $e',
+          message: 'Login Gagal: ${AppError.toMessage(e)}',
         );
       }
     } finally {
@@ -139,7 +140,7 @@ class _LoginPageState extends State<LoginPage> {
         AppNotification.show(
           context,
           type: AppNotificationType.error,
-          message: 'Login Google Gagal: $e',
+          message: 'Login Google Gagal: ${AppError.toMessage(e)}',
         );
       }
     } finally {

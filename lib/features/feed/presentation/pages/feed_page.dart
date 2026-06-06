@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,11 +10,12 @@ import '../../../map/data/repositories/flood_report_repository.dart';
 import '../../data/repositories/report_comment_repository.dart';
 import '../widgets/report_comments_sheet.dart';
 import 'report_map_detail_page.dart';
-import '../widgets/nearby_alerts_sheet.dart';
+import '../widgets/notifications_sheet.dart';
 import '../providers/nearby_alerts_provider.dart';
 import '../../../../core/providers/navigation_providers.dart';
 import '../../../../core/providers/notification_settings_provider.dart';
 import '../../../../core/notifications/local_notification_service.dart';
+import '../../../../core/notifications/data/repositories/notification_repository.dart';
 
 class FeedPage extends ConsumerStatefulWidget {
   const FeedPage({super.key});
@@ -78,7 +80,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
     final reportsAsync = ref.watch(activeFloodReportsProvider);
     final nearbyReports = ref.watch(nearbyAlertReportsProvider);
-    final alertsCount = nearbyReports.length;
+    final userNotificationsAsync = ref.watch(userNotificationsProvider);
+    
+    final unreadCommentsCount = userNotificationsAsync.maybeWhen(
+      data: (notifications) => notifications.where((n) => !n.isRead).length,
+      orElse: () => 0,
+    );
+    
+    final alertsCount = nearbyReports.length + unreadCommentsCount;
     final isNotificationEnabled = ref.watch(notificationSettingsProvider);
 
     return Scaffold(
@@ -95,13 +104,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 color: isNotificationEnabled ? null : Colors.grey,
               ),
             ),
-            tooltip: 'Notifikasi Terdekat',
+            tooltip: 'Pusat Notifikasi',
             onPressed: () {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
                 backgroundColor: Colors.transparent,
-                builder: (context) => const NearbyAlertsBottomSheet(),
+                builder: (context) => const NotificationsSheet(),
               );
             },
           ),
@@ -483,7 +492,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             ),
           );
         },
-        error: (error, _) => Center(child: Text('Gagal memuat: $error')),
+        error: (error, _) => Center(child: Text('Gagal memuat: ${AppError.toMessage(error)}')),
         loading: () => ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: 3,
@@ -526,7 +535,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal mengirim suara: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Gagal mengirim suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
           );
         }
       }

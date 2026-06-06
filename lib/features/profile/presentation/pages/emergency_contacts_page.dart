@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -19,7 +20,7 @@ class EmergencyContactsPage extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal menghubungi $name: $e'),
+            content: Text('Gagal menghubungi $name: ${AppError.toMessage(e)}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

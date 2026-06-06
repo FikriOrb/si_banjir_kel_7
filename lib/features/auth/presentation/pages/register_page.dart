@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -54,6 +55,25 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() => _isLoading = true);
     try {
+      // Cek ketersediaan username
+      final checkUsername = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+      if (checkUsername != null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            message: 'Username "$username" sudah digunakan. Silakan pilih yang lain.',
+          );
+        }
+        return;
+      }
+
       await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
@@ -72,7 +92,7 @@ class _RegisterPageState extends State<RegisterPage> {
         AppNotification.show(
           context,
           type: AppNotificationType.error,
-          message: 'Daftar Gagal: $e',
+          message: 'Daftar Gagal: ${AppError.toMessage(e)}',
         );
       }
     } finally {

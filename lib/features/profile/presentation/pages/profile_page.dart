@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -75,8 +76,10 @@ class _ProfilePageState extends State<ProfilePage> {
       body: Center(
           child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 680),
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
+              child: RefreshIndicator(
+                onRefresh: _fetchUserData,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                 children: [
                   const SizedBox(height: 16),
 
@@ -457,7 +460,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
                 ],
-              ))),
+              )))),
     );
   }
 
@@ -724,6 +727,26 @@ class _ProfilePageState extends State<ProfilePage> {
                               final userId =
                                   Supabase.instance.client.auth.currentUser!.id;
 
+                              // 0. Cek ketersediaan username
+                              final checkUsername = await Supabase.instance.client
+                                  .from('users')
+                                  .select('id')
+                                  .eq('username', newUser)
+                                  .neq('id', userId)
+                                  .maybeSingle();
+
+                              if (checkUsername != null) {
+                                if (stateContext.mounted) {
+                                  setState(() => isLoading = false);
+                                  AppNotification.show(
+                                    context,
+                                    type: AppNotificationType.error,
+                                    message: 'Username "$newUser" sudah digunakan oleh orang lain. Silakan pilih yang lain.',
+                                  );
+                                }
+                                return;
+                              }
+
                               // 1. Update metadata di auth.users
                               await Supabase.instance.client.auth.updateUser(
                                 UserAttributes(data: {
@@ -753,7 +776,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 AppNotification.show(
                                   context,
                                   type: AppNotificationType.error,
-                                  message: 'Gagal mengubah profil: $e',
+                                  message: 'Gagal mengubah profil: ${AppError.toMessage(e)}',
                                 );
                               }
                             } finally {
@@ -787,7 +810,28 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
+  Future<void> _showChangePasswordDialog(BuildContext context) async {
+    // Tampilkan indikator loading saat mengecek status sandi ke database
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    bool hasPassword = false;
+    try {
+      final response = await Supabase.instance.client.rpc('has_password');
+      hasPassword = response as bool;
+    } catch (e) {
+      // Fallback jika migrasi belum dijalankan
+      final user = Supabase.instance.client.auth.currentUser;
+      final providers = user?.appMetadata['providers'] as List<dynamic>? ?? [];
+      hasPassword = providers.contains('email') || (user?.userMetadata?['has_set_password'] == true);
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context); // Tutup indikator loading
+
     final oldPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
@@ -805,31 +849,34 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: LucideIcons.lock,
               iconColor: AppColors.primary,
               title: 'Ubah Kata Sandi',
-              subtitle:
-                  'Masukkan kata sandi lama Anda beserta kata sandi baru yang ingin digunakan.',
+              subtitle: hasPassword
+                  ? 'Masukkan kata sandi lama Anda beserta kata sandi baru yang ingin digunakan.'
+                  : 'Anda belum memiliki kata sandi (login via Google). Silakan buat kata sandi baru untuk akun Anda.',
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: oldPasswordController,
-                    obscureText: obscureOld,
-                    decoration: InputDecoration(
-                      labelText: 'Kata Sandi Lama',
-                      prefixIcon: const Icon(LucideIcons.lock, size: 20),
-                      border: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12))),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscureOld ? LucideIcons.eyeOff : LucideIcons.eye,
-                          color: const Color(0xFF64748B),
-                          size: 20,
+                  if (hasPassword) ...[
+                    TextField(
+                      controller: oldPasswordController,
+                      obscureText: obscureOld,
+                      decoration: InputDecoration(
+                        labelText: 'Kata Sandi Lama',
+                        prefixIcon: const Icon(LucideIcons.lock, size: 20),
+                        border: const OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12))),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureOld ? LucideIcons.eyeOff : LucideIcons.eye,
+                            color: const Color(0xFF64748B),
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              setState(() => obscureOld = !obscureOld),
                         ),
-                        onPressed: () =>
-                            setState(() => obscureOld = !obscureOld),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
                   TextField(
                     controller: newPasswordController,
                     obscureText: obscureNew,
@@ -898,7 +945,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             final confirmPassword =
                                 confirmPasswordController.text;
 
-                            if (oldPassword.isEmpty ||
+                            if ((hasPassword && oldPassword.isEmpty) ||
                                 newPassword.isEmpty ||
                                 confirmPassword.isEmpty) {
                               AppNotification.show(
@@ -939,15 +986,20 @@ class _ProfilePageState extends State<ProfilePage> {
                               }
 
                               // 1. Re-autentikasi kata sandi lama untuk keamanan
-                              await Supabase.instance.client.auth
-                                  .signInWithPassword(
-                                email: email,
-                                password: oldPassword,
-                              );
+                              if (hasPassword) {
+                                await Supabase.instance.client.auth
+                                    .signInWithPassword(
+                                  email: email,
+                                  password: oldPassword,
+                                );
+                              }
 
-                              // 2. Perbarui kata sandi baru
+                              // 2. Perbarui kata sandi baru dan tandai bahwa user sudah punya sandi
                               await Supabase.instance.client.auth.updateUser(
-                                UserAttributes(password: newPassword),
+                                UserAttributes(
+                                  password: newPassword,
+                                  data: {'has_set_password': true},
+                                ),
                               );
 
                               if (context.mounted) {
@@ -1046,7 +1098,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Gagal mengunggah foto: $e'),
+              content: Text('Gagal mengunggah foto: ${AppError.toMessage(e)}'),
               backgroundColor: Colors.red),
         );
       }

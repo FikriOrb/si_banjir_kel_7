@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,7 +109,7 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
           context,
           type: AppNotificationType.error,
           title: 'Gagal',
-          message: 'Gagal mengirim: $e',
+          message: 'Gagal mengirim: ${AppError.toMessage(e)}',
         );
       }
     } finally {
@@ -257,6 +258,17 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
                     final topLevel = comments.where((c) => c.parentId == null).toList();
                     final replies = comments.where((c) => c.parentId != null).toList();
 
+                    // Fungsi rekursif untuk mengambil semua turunan (descendants)
+                    List<ReportComment> getDescendants(String parentId) {
+                      final direct = replies.where((r) => r.parentId == parentId).toList();
+                      final result = <ReportComment>[];
+                      for (final d in direct) {
+                        result.add(d);
+                        result.addAll(getDescendants(d.id));
+                      }
+                      return result;
+                    }
+
                     return RefreshIndicator(
                       color: AppColors.primary,
                       onRefresh: () async {
@@ -269,8 +281,10 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
                         itemCount: topLevel.length,
                         itemBuilder: (context, index) {
                           final comment = topLevel[index];
-                          final commentReplies =
-                              replies.where((r) => r.parentId == comment.id).toList();
+                          
+                          // Ambil semua balasan (termasuk balasannya balasan) dan urutkan berdasarkan waktu
+                          final commentReplies = getDescendants(comment.id)
+                            ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 4),
@@ -289,9 +303,17 @@ class _ReportCommentsSheetState extends ConsumerState<ReportCommentsSheet>
                                     padding: const EdgeInsets.only(left: 48),
                                     child: Column(
                                       children: commentReplies.map((reply) {
+                                        // Cari parent sebenarnya untuk menampilkan "A ▶ B"
+                                        final actualParent = comments.firstWhere((c) => c.id == reply.parentId, orElse: () => comment);
+                                        
                                         return _CommentTile(
                                           comment: reply,
                                           isReply: true,
+                                          parentComment: actualParent,
+                                          onReply: () {
+                                            setState(() => _replyingTo = reply);
+                                            _focusNode.requestFocus();
+                                          },
                                         );
                                       }).toList(),
                                     ),
@@ -472,11 +494,13 @@ class _CommentTile extends ConsumerStatefulWidget {
   final ReportComment comment;
   final VoidCallback? onReply;
   final bool isReply;
+  final ReportComment? parentComment;
 
   const _CommentTile({
     required this.comment,
     this.onReply,
     this.isReply = false,
+    this.parentComment,
   });
 
   @override
@@ -586,6 +610,17 @@ class _CommentTileState extends ConsumerState<_CommentTile>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                            if (widget.isReply && widget.parentComment != null) ...[
+                              const Icon(Icons.play_arrow, size: 12, color: Color(0xFF94A3B8)),
+                              Text(
+                                widget.parentComment!.userName ?? widget.parentComment!.userUsername ?? 'Warga Anonim',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Color(0xFF475569), // Slightly lighter than the author's name
+                                ),
+                              ),
+                            ],
                             Text(
                               _formatTime(widget.comment.createdAt.toLocal()),
                               style: const TextStyle(
@@ -724,7 +759,7 @@ class _CommentTileState extends ConsumerState<_CommentTile>
             context,
             type: AppNotificationType.error,
             title: 'Gagal',
-            message: 'Gagal menghapus: $e',
+            message: 'Gagal menghapus: ${AppError.toMessage(e)}',
           );
         }
       }

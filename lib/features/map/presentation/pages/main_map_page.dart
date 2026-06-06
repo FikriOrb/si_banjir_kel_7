@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -72,7 +73,7 @@ class _MainMapPageState extends ConsumerState<MainMapPage> {
               padding: const EdgeInsets.only(bottom: 90, top: 20),
               markers: reports.map(_markerForReport).toSet(),
             ),
-            error: (error, _) => _MapFallback(message: error.toString()),
+            error: (error, _) => _MapFallback(message: AppError.toMessage(error)),
             loading: () => GoogleMap(
               initialCameraPosition: const CameraPosition(
                 target: _medanCenter,

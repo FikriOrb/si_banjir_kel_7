@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -38,21 +39,36 @@ class ReportStatisticsPage extends ConsumerWidget {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
       ),
-      body: statsAsync.when(
-        data: (data) {
-          final reports = data['reports'] as List<Map<String, dynamic>>;
-          final totalUsers = data['total_users'] as int;
-
-          if (reports.isEmpty && totalUsers == 0) {
-            return const Center(
-              child: Text('Belum ada data laporan banjir.'),
-            );
-          }
-          return _StatisticsContent(data: reports, totalUsers: totalUsers);
+      body: RefreshIndicator(
+        onRefresh: () async {
+          return ref.refresh(communityStatisticsProvider.future);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Gagal memuat statistik:\n$error', textAlign: TextAlign.center),
+        child: statsAsync.when(
+          data: (data) {
+            final reports = data['reports'] as List<Map<String, dynamic>>;
+            final totalUsers = data['total_users'] as int;
+
+            if (reports.isEmpty && totalUsers == 0) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                children: const [
+                  SizedBox(height: 200),
+                  Center(child: Text('Belum ada data laporan banjir.')),
+                ],
+              );
+            }
+            return _StatisticsContent(data: reports, totalUsers: totalUsers);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            children: [
+              const SizedBox(height: 200),
+              Center(
+                child: Text('Gagal memuat statistik:\n${AppError.toMessage(error)}', textAlign: TextAlign.center),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -156,7 +172,7 @@ class _StatisticsContent extends StatelessWidget {
     final maxLocationCount = topLocations.isNotEmpty ? topLocations.first.value : 1;
 
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

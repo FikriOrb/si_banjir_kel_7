@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -371,7 +372,7 @@ class ReportDetailBottomSheet extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal mengirim suara: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Gagal mengirim suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
           );
         }
       }
@@ -409,7 +410,7 @@ class ReportDetailBottomSheet extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menarik suara: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Gagal menarik suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
           );
         }
       }

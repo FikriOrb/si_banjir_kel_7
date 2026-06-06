@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../../../core/widgets/app_notification.dart';
 import '../../../../core/providers/navigation_providers.dart';
 import '../../../report/data/repositories/report_submission_repository.dart';
 import '../../../report/presentation/pages/location_picker_page.dart';
+import '../../../../core/utils/error_handler.dart';
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -217,7 +219,7 @@ class HistoryPage extends ConsumerWidget {
                                         AppNotification.show(
                                           context,
                                           type: AppNotificationType.error,
-                                          message: 'Gagal menghapus laporan: $e',
+                                          message: 'Gagal menghapus laporan: ${AppError.toMessage(e)}',
                                         );
                                       }
                                     }
@@ -236,7 +238,7 @@ class HistoryPage extends ConsumerWidget {
             ),
           );
         },
-        error: (error, _) => Center(child: Text('Gagal memuat: $error')),
+        error: (error, _) => Center(child: Text('Gagal memuat: ${AppError.toMessage(error)}')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ))),
     );
@@ -297,7 +299,7 @@ class _EditReportSheetState extends State<_EditReportSheet> {
       }
     } catch (e) {
       if (mounted) {
-        AppNotification.show(context, type: AppNotificationType.error, title: 'Error', message: 'Gagal membuka kamera: $e');
+        AppNotification.show(context, type: AppNotificationType.error, title: 'Error', message: 'Gagal membuka kamera: ${AppError.toMessage(e)}');
       }
     }
   }

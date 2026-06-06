@@ -1,3 +1,4 @@
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/core/utils/error_handler.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -284,7 +285,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
         AppNotification.show(context,
             type: AppNotificationType.error,
             title: 'Error',
-            message: 'Gagal membuka kamera: $e');
+            message: 'Gagal membuka kamera: ${AppError.toMessage(e)}');
       }
     }
   }
@@ -314,7 +315,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
           AppNotification.show(context,
               type: AppNotificationType.error,
               title: 'Error',
-              message: 'Gagal mendapatkan GPS: $e');
+              message: 'Gagal mendapatkan GPS: ${AppError.toMessage(e)}');
           setState(() {
             _isSubmitting = false;
           });

@@ -12,6 +12,7 @@ import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../map/data/repositories/flood_report_repository.dart';
 import '../../../report/presentation/widgets/report_bottom_sheet.dart';
 import '../../../../core/providers/navigation_providers.dart';
+import '../../../../core/providers/network_connectivity_provider.dart';
 
 class HomeShellPage extends ConsumerStatefulWidget {
   const HomeShellPage({super.key});
@@ -242,6 +243,9 @@ class _HomeShellPageState extends ConsumerState<HomeShellPage> {
         ref.read(activeGeofenceAlertProvider.notifier).state = null;
       }
     });
+
+    // Start listening to network connectivity for auto-refresh
+    ref.watch(networkAutoRefreshProvider);
 
     final width = MediaQuery.sizeOf(context).width;
     final isTablet = width >= 600;
