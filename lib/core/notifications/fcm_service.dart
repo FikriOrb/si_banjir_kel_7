@@ -1,11 +1,63 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../../firebase_options.dart';
+import 'local_notification_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Pastikan Firebase sudah diinisialisasi untuk isolate background
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  if (kDebugMode) {
+    print("Handling a background message: ${message.messageId}");
+  }
+
+  // Cek apakah ini pesan geofencing peringatan banjir
+  if (message.data['type'] == 'flood_alert') {
+    final double floodLat = double.tryParse(message.data['latitude']?.toString() ?? '0') ?? 0;
+    final double floodLng = double.tryParse(message.data['longitude']?.toString() ?? '0') ?? 0;
+
+    // Dapatkan lokasi pengguna (background)
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    // Pakai getLastKnownPosition agar lebih hemat baterai dan cepat
+    Position? position = await Geolocator.getLastKnownPosition();
+    position ??= await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+    // Hitung jarak
+    double distanceInMeters = Geolocator.distanceBetween(
+      position.latitude, position.longitude, floodLat, floodLng
+    );
+
+    // Radius bahaya: misal 100 meter
+    if (distanceInMeters <= 100) {
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
+      await localService.initialize();
+      await localService.showFloodAlert(
+        reportId: message.data['report_id'] ?? 'unknown',
+        distanceMeters: distanceInMeters,
+      );
+    }
+  }
+}
 
 class FcmService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   
   static Future<void> initialize() async {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
     // 1. Meminta Izin Notifikasi (terutama untuk iOS dan Android 13+)
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
@@ -38,17 +90,45 @@ class FcmService {
       });
       
       // 4. Pengaturan penerimaan pesan saat aplikasi aktif (Foreground)
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         if (kDebugMode) {
           print('Got a message whilst in the foreground!');
           print('Message data: ${message.data}');
+        }
+
+        // Cek apakah ini pesan peringatan banjir geofencing
+        if (message.data['type'] == 'flood_alert') {
+          final double floodLat = double.tryParse(message.data['latitude']?.toString() ?? '0') ?? 0;
+          final double floodLng = double.tryParse(message.data['longitude']?.toString() ?? '0') ?? 0;
+
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (serviceEnabled) {
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+              Position? position = await Geolocator.getLastKnownPosition();
+              position ??= await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+              
+              double distanceInMeters = Geolocator.distanceBetween(
+                position.latitude, position.longitude, floodLat, floodLng
+              );
+
+              if (distanceInMeters <= 100) {
+                final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+                final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
+                await localService.initialize();
+                await localService.showFloodAlert(
+                  reportId: message.data['report_id'] ?? 'unknown',
+                  distanceMeters: distanceInMeters,
+                );
+              }
+            }
+          }
         }
 
         if (message.notification != null) {
           if (kDebugMode) {
             print('Message also contained a notification: ${message.notification}');
           }
-          // TODO: Hubungkan ke LocalNotificationService jika ingin memunculkan banner manual
         }
       });
       
