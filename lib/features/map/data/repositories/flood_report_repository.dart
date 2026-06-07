@@ -149,6 +149,21 @@ class FloodReportRepository {
     }
   }
 
+  Future<void> reportPost(String reportId, String category, String? note) async {
+    try {
+      await _client.rpc('report_post', params: {
+        'p_report_id': reportId,
+        'p_category': category,
+        'p_note': note,
+      });
+    } catch (e) {
+      if (e.toString().contains('Anda sudah pernah melaporkan')) {
+        throw Exception('Anda sudah pernah melaporkan postingan ini.');
+      }
+      rethrow;
+    }
+  }
+
   Future<bool> hasUserVoted(String reportId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return false;

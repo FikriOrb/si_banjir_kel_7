@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/providers/navigation_providers.dart';
 import '../../../map/data/models/flood_report.dart';
 import '../../../map/data/repositories/flood_report_repository.dart';
 import '../../data/repositories/report_comment_repository.dart';
@@ -12,7 +14,6 @@ import '../widgets/report_comments_sheet.dart';
 import 'report_map_detail_page.dart';
 import '../widgets/notifications_sheet.dart';
 import '../providers/nearby_alerts_provider.dart';
-import '../../../../core/providers/navigation_providers.dart';
 import '../../../../core/providers/notification_settings_provider.dart';
 import '../../../../core/notifications/local_notification_service.dart';
 import '../../../../core/notifications/data/repositories/notification_repository.dart';
@@ -840,15 +841,15 @@ void showReportPostDialog(BuildContext context, FloodReport report) {
   );
 }
 
-class _ReportPostSheet extends StatefulWidget {
+class _ReportPostSheet extends ConsumerStatefulWidget {
   final FloodReport report;
   const _ReportPostSheet({required this.report});
 
   @override
-  State<_ReportPostSheet> createState() => _ReportPostSheetState();
+  ConsumerState<_ReportPostSheet> createState() => _ReportPostSheetState();
 }
 
-class _ReportPostSheetState extends State<_ReportPostSheet> {
+class _ReportPostSheetState extends ConsumerState<_ReportPostSheet> {
   static const _categories = [
     _ReportCategory(
       icon: LucideIcons.alertTriangle,
@@ -908,34 +909,30 @@ class _ReportPostSheetState extends State<_ReportPostSheet> {
 
   Future<void> _submitReport() async {
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Pilih kategori laporan terlebih dahulu'),
-          backgroundColor: Colors.orange.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      AppNotification.show(context, type: AppNotificationType.error, title: 'Perhatian', message: 'Pilih kategori laporan terlebih dahulu');
       return;
     }
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(LucideIcons.checkCircle, color: Colors.white, size: 18),
-              SizedBox(width: 10),
-              Text('Laporan berhasil dikirim. Terima kasih!'),
-            ],
-          ),
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+    
+    try {
+      final category = _categories[_selectedCategory!].label;
+      final note = _noteController.text.trim();
+      
+      await ref.read(floodReportRepositoryProvider).reportPost(
+        widget.report.id,
+        category,
+        note.isEmpty ? null : note,
       );
+      
+      if (mounted) {
+        Navigator.pop(context);
+        AppNotification.show(context, type: AppNotificationType.success, title: 'Berhasil', message: 'Laporan berhasil dikirim. Terima kasih!');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        AppNotification.show(context, type: AppNotificationType.error, title: 'Gagal', message: AppError.toMessage(e));
+      }
     }
   }
 

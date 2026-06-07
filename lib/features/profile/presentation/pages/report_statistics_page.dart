@@ -16,7 +16,8 @@ final communityStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) a
   final client = Supabase.instance.client;
   final reportsResponse = await client
       .from('flood_reports')
-      .select('created_at, depth_level, address, location, report_type');
+      .select('created_at, depth_level, address, location, report_type')
+      .eq('is_blocked', false);
       
   final usersResponse = await client.from('users').select('id');
   

@@ -41,6 +41,7 @@ final nearbyAlertReportsProvider = Provider.autoDispose<List<FloodReport>>((ref)
           photoUrl: report.photoUrl,
           upvoteCount: report.upvoteCount,
           downvoteCount: report.downvoteCount,
+          isBlocked: false,
           expiresAt: report.expiresAt,
           createdAt: report.createdAt,
           isActive: report.isActive,

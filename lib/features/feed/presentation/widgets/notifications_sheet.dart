@@ -513,6 +513,7 @@ class _CommentsTab extends ConsumerWidget {
                           photoUrl: '',
                           upvoteCount: 0,
                           downvoteCount: 0,
+                          isBlocked: false,
                           expiresAt: DateTime.now(),
                           createdAt: DateTime.now(),
                           isActive: true,

@@ -141,19 +141,19 @@ class HistoryPage extends ConsumerWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: isActive ? Colors.green.shade50 : Colors.grey.shade100,
+                                          color: report.isBlocked ? Colors.red.shade50 : (isActive ? Colors.green.shade50 : Colors.grey.shade100),
                                           borderRadius: BorderRadius.circular(8),
                                           border: Border.all(
-                                            color: isActive ? Colors.green.shade200 : Colors.grey.shade200,
+                                            color: report.isBlocked ? Colors.red.shade200 : (isActive ? Colors.green.shade200 : Colors.grey.shade200),
                                             width: 1,
                                           ),
                                         ),
                                         child: Text(
-                                          isActive ? 'Laporan Aktif' : 'Laporan Tidak Aktif',
+                                          report.isBlocked ? 'Laporan Diblokir' : (isActive ? 'Laporan Aktif' : 'Laporan Tidak Aktif'),
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
-                                            color: isActive ? Colors.green.shade700 : Colors.grey.shade600,
+                                            color: report.isBlocked ? Colors.red.shade700 : (isActive ? Colors.green.shade700 : Colors.grey.shade600),
                                           ),
                                         ),
                                       ),
