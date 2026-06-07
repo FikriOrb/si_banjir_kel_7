@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_notification.dart';
+import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
 import 'features/auth/presentation/pages/update_password_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FloodWarningApp extends StatefulWidget {
   const FloodWarningApp({super.key});
@@ -31,6 +34,78 @@ class _FloodWarningAppState extends State<FloodWarningApp> {
               MaterialPageRoute(builder: (_) => const UpdatePasswordPage()),
               (route) => false,
             );
+          }
+        });
+      } else if (event == AuthChangeEvent.signedIn) {
+        SharedPreferences.getInstance().then((prefs) {
+          final isAwaiting = prefs.getBool('awaiting_verification') ?? false;
+          if (isAwaiting) {
+            prefs.remove('awaiting_verification');
+            
+            // Cegah SplashPage agar tidak berpindah layar sendiri
+            prefs.setBool('is_verifying_deep_link', true);
+            
+            Timer.periodic(const Duration(milliseconds: 100), (timer) {
+              if (_navigatorKey.currentState != null && _navigatorKey.currentContext != null) {
+                timer.cancel();
+                
+                // 1. Tampilkan loading dialog
+                showDialog(
+                  context: _navigatorKey.currentContext!,
+                  barrierDismissible: false,
+                  builder: (context) => WillPopScope(
+                    onWillPop: () async => false,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 24),
+                            Text(
+                              'Memverifikasi Akun...',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+
+                // 2. Beri jeda agar terasa ada proses verifikasi, lalu sign out dan pindah
+                Future.delayed(const Duration(seconds: 2), () async {
+                  await Supabase.instance.client.auth.signOut();
+                  await prefs.remove('is_verifying_deep_link'); // Selesai
+                  
+                  if (_navigatorKey.currentState != null) {
+                    _navigatorKey.currentState?.pushAndRemoveUntil(
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const LoginPage(),
+                        transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+                      ),
+                      (route) => false,
+                    );
+
+                    Future.delayed(const Duration(milliseconds: 600), () {
+                      if (_navigatorKey.currentContext != null) {
+                        AppNotification.show(
+                          _navigatorKey.currentContext!,
+                          type: AppNotificationType.success,
+                          title: 'Verifikasi Berhasil',
+                          message: 'Akun Anda sudah aktif. Silakan masuk!',
+                        );
+                      }
+                    });
+                  }
+                });
+              }
+            });
           }
         });
       }

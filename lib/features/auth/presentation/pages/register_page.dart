@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/env.dart';
 import '../../../../core/widgets/app_notification.dart';
 import '../../../home/presentation/pages/home_shell_page.dart';
@@ -78,7 +79,11 @@ class _RegisterPageState extends State<RegisterPage> {
         email: email,
         password: password,
         data: {'full_name': fullName, 'username': username},
+        emailRedirectTo: 'sibanjir://login-callback/',
       );
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('awaiting_verification', true);
       if (mounted) {
         AppNotification.show(
           context,

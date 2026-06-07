@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../home/presentation/pages/home_shell_page.dart';
 import 'login_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'onboarding_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -22,7 +24,7 @@ class _SplashPageState extends State<SplashPage>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -44,17 +46,41 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _navigateToNext() async {
-    // Berikan delay singkat 1.2 detik agar logo branding terlihat jelas lalu masuk
-    await Future.delayed(const Duration(milliseconds: 1200));
+    // Berikan delay singkat 1.5 detik agar logo branding terlihat jelas lalu masuk
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
 
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    // Jika aplikasi sedang memproses deep link verifikasi email, jangan berpindah layar
+    final isVerifying = prefs.getBool('is_verifying_deep_link') ?? false;
+    if (isVerifying) return;
+
     final session = Supabase.instance.client.auth.currentSession;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) =>
-            session == null ? const LoginPage() : const HomeShellPage(),
-      ),
-    );
+    
+    if (!hasSeenOnboarding && session == null) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const OnboardingPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              session == null ? const LoginPage() : const HomeShellPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
+      );
+    }
   }
 
   @override
