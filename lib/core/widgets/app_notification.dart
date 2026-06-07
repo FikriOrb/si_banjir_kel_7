@@ -9,7 +9,8 @@ enum AppNotificationType {
   updateProfile,
   updatePassword,
   logout,
-  error
+  error,
+  success
 }
 
 class AppNotification {
@@ -151,6 +152,11 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget> with Sin
         icon = LucideIcons.alertCircle;
         color = const Color(0xFFEF4444); // Red
         displayTitle = widget.title ?? 'Peringatan';
+        break;
+      case AppNotificationType.success:
+        icon = LucideIcons.checkCircle2;
+        color = const Color(0xFF10B981); // Emerald Green
+        displayTitle = widget.title ?? 'Berhasil';
         break;
     }
 
