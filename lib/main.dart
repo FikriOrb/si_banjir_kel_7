@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -11,6 +13,7 @@ import 'core/providers/notification_settings_provider.dart';
 import 'app.dart';
 import 'core/config/env.dart';
 import 'core/notifications/local_notification_service.dart';
+import 'core/notifications/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,12 +28,20 @@ Future<void> main() async {
 
   await dotenv.load(fileName: ".env");
 
+  // Inisialisasi Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   if (Env.hasSupabaseConfig) {
     await Supabase.initialize(
       url: Env.supabaseUrl,
       anonKey: Env.supabaseAnonKey,
     );
   }
+
+  // Minta izin notifikasi dan setup Firebase Messaging
+  await FcmService.initialize();
 
   await LocalNotificationService(
     FlutterLocalNotificationsPlugin(),

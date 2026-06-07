@@ -8,6 +8,7 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
 import 'features/auth/presentation/pages/update_password_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/notifications/fcm_service.dart';
 
 class FloodWarningApp extends StatefulWidget {
   const FloodWarningApp({super.key});
@@ -106,6 +107,9 @@ class _FloodWarningAppState extends State<FloodWarningApp> {
                 });
               }
             });
+          } else {
+            // Jika login normal (bukan verifikasi), simpan FCM token
+            FcmService.checkAndSaveToken();
           }
         });
       }
