@@ -30,6 +30,9 @@ class AppError {
     }
 
     if (error is AuthException) {
+      if (error.message.toLowerCase().contains('new password should be different from the old password')) {
+        return 'Kata sandi baru harus berbeda dari kata sandi lama.';
+      }
       return error.message; // Supabase auth error usually has readable message
     }
 
