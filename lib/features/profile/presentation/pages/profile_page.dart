@@ -83,83 +83,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   const SizedBox(height: 16),
 
-                  // Violation Warning Banner
-                  if (!_isLoadingData && (_violationCount > 0 || _isBanned))
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 8.0),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _isBanned
-                              ? Colors.red.shade900
-                              : Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: _isBanned
-                                ? Colors.red.shade900
-                                : Colors.orange.shade300,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isBanned
-                                      ? Colors.red.shade900
-                                      : Colors.orange.shade500)
-                                  .withValues(alpha: 0.2),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              LucideIcons.alertTriangle,
-                              color: _isBanned
-                                  ? Colors.white
-                                  : Colors.orange.shade700,
-                              size: 28,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _isBanned
-                                        ? 'AKUN DIBEKUKAN PERMANEN'
-                                        : 'Peringatan Pelanggaran ($_violationCount/3)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                      color: _isBanned
-                                          ? Colors.white
-                                          : Colors.orange.shade900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _isBanned
-                                        ? 'Akun Anda telah diblokir karena membuat laporan palsu berulang kali. Anda tidak dapat lagi menggunakan fitur lapor.'
-                                        : 'Sebagian laporan Anda dinilai tidak valid oleh komunitas (downvote tinggi). Jika mencapai 3 kali pelanggaran, akun Anda akan diblokir.',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                      color: _isBanned
-                                          ? Colors.red.shade100
-                                          : Colors.orange.shade800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-
                   const SizedBox(height: 16),
 
                   // Profile Card Header
@@ -229,7 +152,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 left: 75,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
+                                      horizontal: 10, vertical: 6),
+                                  constraints: const BoxConstraints(maxWidth: 160),
                                   decoration: BoxDecoration(
                                     color: _isBanned ? Colors.red.shade50 : Colors.amber.shade50,
                                     borderRadius: BorderRadius.circular(12),
@@ -252,14 +176,32 @@ class _ProfilePageState extends State<ProfilePage> {
                                           size: 12,
                                           color: _isBanned ? Colors.red.shade800 : Colors.amber.shade800),
                                       const SizedBox(width: 4),
-                                      Text(
-                                        _isBanned
-                                            ? 'Akun Diblokir Permanen'
-                                            : 'Akun ini telah melanggar peraturan',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          color: _isBanned ? Colors.red.shade900 : Colors.amber.shade900,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _isBanned
+                                                  ? 'AKUN DIBLOKIR PERMANEN'
+                                                  : 'Peringatan Pelanggaran ($_violationCount/3)',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                color: _isBanned ? Colors.red.shade900 : Colors.amber.shade900,
+                                              ),
+                                            ),
+                                            Text(
+                                              _isBanned
+                                                  ? 'Akibat laporan/komentar Anda berulang kali melanggar.'
+                                                  : 'Sisa ${3 - _violationCount} pelanggaran sebelum akun diblokir permanen.',
+                                              style: TextStyle(
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: _isBanned ? Colors.red.shade700 : Colors.amber.shade800,
+                                              ),
+                                              maxLines: 2,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
