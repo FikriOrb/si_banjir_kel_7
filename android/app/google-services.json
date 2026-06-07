@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "331536271240",
+    "project_id": "sibanjir",
+    "storage_bucket": "sibanjir.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:331536271240:android:7023e506082fe94f2bdc3d",
+        "android_client_info": {
+          "package_name": "com.example.sistem_peringatan_banjir_berbasis_komunitas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDv1TRDv7hUIfzeLmmbhbSGBCX1hnCh3E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
