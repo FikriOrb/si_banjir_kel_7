@@ -540,7 +540,7 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
         AppNotification.show(
           context,
           type: AppNotificationType.error,
-          message: 'Laporan gagal dikirim.',
+          message: 'Laporan gagal dikirim: ${AppError.toMessage(error)}',
         );
       }
     } finally {

@@ -26,6 +26,9 @@ class AppError {
       if (error.code == '23505') {
         return 'Data sudah ada (duplikat).';
       }
+      if (error.code == 'P0001' || error.message.isNotEmpty) {
+        return error.message; // Custom exception from database trigger
+      }
       return 'Terjadi kesalahan pada database (Code: ${error.code}).';
     }
 
