@@ -954,132 +954,237 @@ class _CommentTileState extends ConsumerState<_CommentTile>
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 40,
+                    offset: const Offset(0, 10),
                   ),
-                  child: const Icon(LucideIcons.flag, color: Colors.red, size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Laporkan Komentar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Kategori Pelanggaran:', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155), fontSize: 13)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: categories.map((cat) {
-                        final isSelected = selectedCategory == cat;
-                        return ChoiceChip(
-                          label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : const Color(0xFF64748B))),
-                          selected: isSelected,
-                          selectedColor: Colors.red.shade600,
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99), side: const BorderSide(color: Colors.transparent)),
-                          onSelected: (selected) {
-                            if (selected) setState(() => selectedCategory = cat);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('Catatan Tambahan (Opsional):', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155), fontSize: 13)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 3,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Tuliskan detail lebih lanjut jika diperlukan...',
-                        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          shape: BoxShape.circle,
                         ),
-                        contentPadding: const EdgeInsets.all(12),
+                        child: const Icon(LucideIcons.flag, color: Colors.red, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Laporkan Komentar',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              'Pilih alasan pelaporan',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...categories.map((cat) {
+                            final isSelected = selectedCategory == cat;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: InkWell(
+                                onTap: () => setState(() => selectedCategory = cat),
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Colors.red.shade50 : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected ? Colors.red.shade300 : const Color(0xFFE2E8F0),
+                                      width: isSelected ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          cat,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                            color: isSelected ? Colors.red.shade700 : const Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(LucideIcons.checkCircle2, color: Colors.red.shade600, size: 20)
+                                      else
+                                        const Icon(LucideIcons.circle, color: Color(0xFFCBD5E1), size: 20),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                          
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Catatan Tambahan (Opsional)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF475569),
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: TextField(
+                              controller: noteController,
+                              maxLines: 3,
+                              style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                              decoration: const InputDecoration(
+                                hintText: 'Berikan detail tambahan (jika ada)...',
+                                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.all(16),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: const Text(
+                            'Batal',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: (selectedCategory == null || isSubmitting)
+                              ? null
+                              : () async {
+                                  setState(() => isSubmitting = true);
+                                  try {
+                                    await ref.read(reportCommentRepositoryProvider).reportComment(
+                                          commentId: widget.comment.id,
+                                          category: selectedCategory!,
+                                          note: noteController.text,
+                                        );
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      AppNotification.show(
+                                        context,
+                                        type: AppNotificationType.submitReport,
+                                        title: 'Berhasil',
+                                        message: 'Laporan Anda telah diterima.',
+                                      );
+                                    }
+                                  } on PostgrestException catch (e) {
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      AppNotification.show(
+                                        context,
+                                        type: AppNotificationType.error,
+                                        title: 'Peringatan',
+                                        message: e.message,
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      AppNotification.show(
+                                        context,
+                                        type: AppNotificationType.error,
+                                        title: 'Gagal',
+                                        message: 'Gagal melaporkan komentar. Silakan coba lagi.',
+                                      );
+                                    }
+                                  } finally {
+                                    if (context.mounted) setState(() => isSubmitting = false);
+                                  }
+                                },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            disabledBackgroundColor: Colors.red.shade200,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text(
+                                  'Kirim',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
-              ),
-              FilledButton(
-                onPressed: (selectedCategory == null || isSubmitting)
-                    ? null
-                    : () async {
-                        setState(() => isSubmitting = true);
-                        try {
-                          await ref.read(reportCommentRepositoryProvider).reportComment(
-                                commentId: widget.comment.id,
-                                category: selectedCategory!,
-                                note: noteController.text,
-                              );
-                          if (context.mounted) {
-                            Navigator.pop(context); // Tutup dialog
-                            AppNotification.show(
-                              context,
-                              type: AppNotificationType.submitReport,
-                              title: 'Berhasil',
-                              message: 'Laporan Anda telah diterima.',
-                            );
-                          }
-                        } on PostgrestException catch (e) {
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            AppNotification.show(
-                              context,
-                              type: AppNotificationType.error,
-                              title: 'Peringatan',
-                              message: e.message,
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            AppNotification.show(
-                              context,
-                              type: AppNotificationType.error,
-                              title: 'Gagal',
-                              message: 'Gagal melaporkan komentar. Silakan coba lagi.',
-                            );
-                          }
-                        } finally {
-                          if (context.mounted) setState(() => isSubmitting = false);
-                        }
-                      },
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  disabledBackgroundColor: Colors.red.shade200,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-                child: isSubmitting
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Kirim Laporan'),
-              ),
-            ],
           );
         },
       ),

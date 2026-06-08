@@ -141,6 +141,15 @@ class _FloodWarningAppState extends State<FloodWarningApp> {
       title: 'SiBanjir',
       theme: AppTheme.light(),
       home: const SplashPage(),
+      builder: (context, child) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: child!,
+        );
+      },
     );
   }
 }

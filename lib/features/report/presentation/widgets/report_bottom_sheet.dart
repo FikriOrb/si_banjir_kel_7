@@ -278,23 +278,47 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
                 physics: const BouncingScrollPhysics(),
                 child: Row(
                   children: _noteTemplates.map((template) {
+                    final isSelected = _noteController.text.contains(template);
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: ActionChip(
                         elevation: 0,
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        side: BorderSide.none,
-                        label: Text(template,
-                            style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF475569),
-                                fontWeight: FontWeight.bold)),
+                        backgroundColor: isSelected ? AppColors.primary.withValues(alpha: 0.15) : const Color(0xFFF1F5F9),
+                        side: BorderSide(
+                           color: isSelected ? AppColors.primary : Colors.transparent,
+                        ),
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSelected) ...[
+                              const Icon(LucideIcons.check, size: 14, color: AppColors.primary),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(template,
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isSelected ? AppColors.primary : const Color(0xFF475569),
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                         onPressed: () {
                           setState(() {
-                            if (_noteController.text.isNotEmpty) {
-                              _noteController.text += ', $template';
+                            final text = _noteController.text;
+                            if (text.contains(template)) {
+                              // Hapus jika sudah ada (Toggle off)
+                              List<String> parts = text.split(',').map((e) => e.trim()).toList();
+                              parts.removeWhere((e) => e == template || e.isEmpty);
+                              _noteController.text = parts.join(', ');
                             } else {
-                              _noteController.text = template;
+                              // Tambah jika belum ada
+                              final trimmed = text.trim();
+                              if (trimmed.isEmpty) {
+                                _noteController.text = template;
+                              } else if (trimmed.endsWith(',')) {
+                                _noteController.text = '$trimmed $template';
+                              } else {
+                                _noteController.text = '$trimmed, $template';
+                              }
                             }
                           });
                         },
