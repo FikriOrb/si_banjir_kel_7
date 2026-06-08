@@ -8,6 +8,9 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
 import 'features/auth/presentation/pages/update_password_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'core/notifications/local_notification_service.dart';
+import 'features/map/presentation/pages/emergency_alarm_page.dart';
 import 'core/notifications/fcm_service.dart';
 
 class FloodWarningApp extends StatefulWidget {
@@ -24,10 +27,13 @@ class _FloodWarningAppState extends State<FloodWarningApp> {
   @override
   void initState() {
     super.initState();
+    
+    // Setup Local Notification dengan Navigator untuk in-app pop-up
+    _setupNotifications();
+
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
       if (event == AuthChangeEvent.passwordRecovery) {
-        // Gunakan timer untuk memastikan NavigatorState sudah siap
         Timer.periodic(const Duration(milliseconds: 100), (timer) {
           if (_navigatorKey.currentState != null) {
             timer.cancel();
@@ -120,6 +126,11 @@ class _FloodWarningAppState extends State<FloodWarningApp> {
   void dispose() {
     _authSubscription.cancel();
     super.dispose();
+  }
+
+  Future<void> _setupNotifications() async {
+    final localService = LocalNotificationService(FlutterLocalNotificationsPlugin());
+    await localService.initialize(navigatorKey: _navigatorKey);
   }
 
   @override

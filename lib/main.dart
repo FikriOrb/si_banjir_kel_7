@@ -43,10 +43,6 @@ Future<void> main() async {
   // Minta izin notifikasi dan setup Firebase Messaging
   await FcmService.initialize();
 
-  await LocalNotificationService(
-    FlutterLocalNotificationsPlugin(),
-  ).initialize();
-
   final sharedPrefs = await SharedPreferences.getInstance();
 
   runApp(ProviderScope(

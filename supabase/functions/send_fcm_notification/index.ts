@@ -22,65 +22,116 @@ Deno.serve(async (req) => {
     const record = payload.record;
     const table = payload.table;
 
-    // Keduanya punya report_id dan user_id
-    if (!record.report_id || !record.user_id) {
-      return new Response("Missing fields", { status: 200 });
-    }
-
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Dapatkan pemilik postingan
-    const { data: report } = await supabase
-      .from('flood_reports')
-      .select('user_id')
-      .eq('id', record.report_id)
-      .single();
+    // ==========================================
+    // 1. BROADCAST NEW FLOOD REPORT (GEOFENCING)
+    // ==========================================
+    if (table === 'flood_reports' && payload.type === 'INSERT') {
+      // Ambil latitude dan longitude menggunakan RPC yang sudah ada
+      const { data: reports } = await supabase.rpc('get_active_flood_reports');
+      const report = (reports || []).find((r: any) => r.id === record.id);
       
-    // Jangan kirim notif jika kita komen/vote postingan sendiri
-    if (!report || report.user_id === record.user_id) {
-      return new Response("OK - Author self-action", { status: 200 });
+      if (!report) {
+        return new Response("OK - Report not found in active list", { status: 200 });
+      }
+
+      // Ambil SEMUA fcm_token pengguna, KECUALI si pembuat laporan
+      const { data: users } = await supabase
+        .from('users')
+        .select('fcm_token')
+        .neq('id', record.user_id)
+        .not('fcm_token', 'is', null);
+
+      if (!users || users.length === 0) {
+        return new Response("OK - No users to notify", { status: 200 });
+      }
+
+      const tokens = users.map(u => u.fcm_token).filter(t => t);
+
+      if (tokens.length > 0 && admin.apps.length > 0) {
+        // Kirim PESAN SILUMAN (Data Message tanpa body notification) 
+        // agar HP penerima menghitung jaraknya secara diam-diam (Background Handler)
+        const message = {
+          data: {
+            type: 'flood_alert',
+            report_id: record.id,
+            latitude: report.latitude.toString(),
+            longitude: report.longitude.toString()
+          },
+          android: {
+            priority: 'high' as const
+          },
+          apns: {
+            headers: {
+              'apns-priority': '10'
+            }
+          },
+          tokens: tokens, // Maksimal 500 token per request
+        };
+        
+        await admin.messaging().sendEachForMulticast(message);
+        console.log(`FCM Broadcast sent to ${tokens.length} devices!`);
+      }
+      return new Response("OK - Broadcast sent", { status: 200 });
     }
-    
-    // Dapatkan token pemilik dan nama pembuat aksi
-    const [ownerRes, actorRes] = await Promise.all([
-      supabase.from('users').select('fcm_token').eq('id', report.user_id).single(),
-      supabase.from('users').select('full_name').eq('id', record.user_id).single()
-    ]);
 
-    const token = ownerRes.data?.fcm_token;
-    const actorName = actorRes.data?.full_name || 'Seseorang';
+    // ==========================================
+    // 2. NOTIFIKASI KOMENTAR & VOTE (PERSONAL)
+    // ==========================================
+    if (table === 'report_comments' || table === 'report_validations') {
+      if (!record.report_id || !record.user_id) {
+        return new Response("Missing fields", { status: 200 });
+      }
 
-    if (!token) {
-      return new Response("OK - Owner has no FCM token", { status: 200 });
-    }
+      const { data: report } = await supabase
+        .from('flood_reports')
+        .select('user_id')
+        .eq('id', record.report_id)
+        .single();
+        
+      if (!report || report.user_id === record.user_id) {
+        return new Response("OK - Author self-action", { status: 200 });
+      }
+      
+      const [ownerRes, actorRes] = await Promise.all([
+        supabase.from('users').select('fcm_token').eq('id', report.user_id).single(),
+        supabase.from('users').select('full_name').eq('id', record.user_id).single()
+      ]);
 
-    let title = "";
-    let body = "";
+      const token = ownerRes.data?.fcm_token;
+      const actorName = actorRes.data?.full_name || 'Seseorang';
 
-    if (table === 'report_comments' && payload.type === 'INSERT') {
-      title = "Komentar Baru 💬";
-      body = `${actorName} mengomentari laporan banjir Anda.`;
-    } else if (table === 'report_validations' && record.vote_type === 'upvote') {
-      title = "Laporan Divalidasi ✅";
-      body = `${actorName} mengonfirmasi kebenaran laporan Anda.`;
-    } else if (table === 'report_validations' && record.vote_type === 'downvote') {
-      title = "Laporan Diragukan ❌";
-      body = `${actorName} menekan tombol downvote pada laporan Anda.`;
-    } else {
-      return new Response("OK - Action ignored", { status: 200 });
-    }
+      if (!token) {
+        return new Response("OK - Owner has no FCM token", { status: 200 });
+      }
 
-    if (admin.apps.length > 0) {
-      await admin.messaging().send({
-        notification: { title, body },
-        token: token,
-      });
-      console.log("FCM Notification sent!");
-    } else {
-      console.error("Firebase not initialized! Missing FIREBASE_SERVICE_ACCOUNT.");
+      let title = "";
+      let body = "";
+
+      if (table === 'report_comments' && payload.type === 'INSERT') {
+        title = "Komentar Baru 💬";
+        body = `${actorName} mengomentari laporan banjir Anda.`;
+      } else if (table === 'report_validations' && record.vote_type === 'upvote') {
+        title = "Laporan Divalidasi ✅";
+        body = `${actorName} mengonfirmasi kebenaran laporan Anda.`;
+      } else if (table === 'report_validations' && record.vote_type === 'downvote') {
+        title = "Laporan Diragukan ❌";
+        body = `${actorName} menekan tombol downvote pada laporan Anda.`;
+      } else {
+        return new Response("OK - Action ignored", { status: 200 });
+      }
+
+      if (admin.apps.length > 0) {
+        await admin.messaging().send({
+          notification: { title, body },
+          token: token,
+        });
+      }
+      return new Response("OK - Personal notif sent", { status: 200 });
     }
 
     return new Response("OK", { status: 200 });

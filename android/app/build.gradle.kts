@@ -20,7 +20,7 @@ val mapsApiKey = envProps.getProperty("MAPS_API_KEY") ?: ""
 
 android {
     namespace = "com.example.sistem_peringatan_banjir_berbasis_komunitas"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -30,17 +30,45 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       return;
     }
 
-    // Pakai getLastKnownPosition agar lebih hemat baterai dan cepat
+    // Ambil posisi terakhir, cek apakah sudah kadaluarsa (lebih dari 2 menit)
     Position? position = await Geolocator.getLastKnownPosition();
-    position ??= await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    if (position != null) {
+      final difference = DateTime.now().difference(position.timestamp);
+      if (difference.inMinutes > 2) {
+        position = null; // Posisi usang, ambil yang baru!
+      }
+    }
+
+    if (position == null) {
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10), // Beri waktu 10 detik
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print("Gagal mengambil lokasi baru di background, fallback ke last known: $e");
+        }
+        position = await Geolocator.getLastKnownPosition();
+        if (position == null) return; // Menyerah jika benar-benar tidak ada
+      }
+    }
 
     // Hitung jarak
     double distanceInMeters = Geolocator.distanceBetween(
       position.latitude, position.longitude, floodLat, floodLng
     );
 
-    // Radius bahaya: misal 100 meter
-    if (distanceInMeters <= 100) {
+    // Radius bahaya
+    if (distanceInMeters <= 50) {
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
+      await localService.initialize();
+      await localService.showEmergencyAlarm(
+        reportId: message.data['report_id'] ?? 'unknown',
+        distanceMeters: distanceInMeters,
+      );
+    } else if (distanceInMeters <= 100) {
       final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
       final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
       await localService.initialize();
@@ -106,16 +134,40 @@ class FcmService {
             LocationPermission permission = await Geolocator.checkPermission();
             if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
               Position? position = await Geolocator.getLastKnownPosition();
-              position ??= await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+              if (position != null) {
+                final diff = DateTime.now().difference(position.timestamp);
+                if (diff.inMinutes > 2) position = null;
+              }
+
+              if (position == null) {
+                try {
+                  position = await Geolocator.getCurrentPosition(
+                    desiredAccuracy: LocationAccuracy.high,
+                    timeLimit: const Duration(seconds: 10),
+                  );
+                } catch (e) {
+                  if (kDebugMode) print('Gagal mengambil lokasi foreground: $e');
+                  position = await Geolocator.getLastKnownPosition();
+                  if (position == null) return;
+                }
+              }
               
               double distanceInMeters = Geolocator.distanceBetween(
                 position.latitude, position.longitude, floodLat, floodLng
               );
 
-              if (distanceInMeters <= 100) {
+              if (distanceInMeters <= 50) {
                 final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
                 final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
-                await localService.initialize();
+                // JANGAN panggil initialize() lagi di foreground, nanti menimpa navigatorKey!
+                await localService.showEmergencyAlarm(
+                  reportId: message.data['report_id'] ?? 'unknown',
+                  distanceMeters: distanceInMeters,
+                );
+              } else if (distanceInMeters <= 100) {
+                final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+                final localService = LocalNotificationService(flutterLocalNotificationsPlugin);
+                // JANGAN panggil initialize() lagi di foreground
                 await localService.showFloodAlert(
                   reportId: message.data['report_id'] ?? 'unknown',
                   distanceMeters: distanceInMeters,

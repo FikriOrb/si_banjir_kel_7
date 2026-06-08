@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../home/presentation/pages/home_shell_page.dart';
 import 'login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:sistem_peringatan_banjir_berbasis_komunitas/features/map/presentation/pages/emergency_alarm_page.dart';
 import 'onboarding_page.dart';
 
 class SplashPage extends StatefulWidget {
@@ -80,6 +82,25 @@ class _SplashPageState extends State<SplashPage>
           transitionDuration: const Duration(milliseconds: 800),
         ),
       );
+    }
+
+    // CEK APAKAH DILUNCURKAN DARI ALARM (setelah navigasi utama)
+    final details = await FlutterLocalNotificationsPlugin().getNotificationAppLaunchDetails();
+    if (details != null && details.didNotificationLaunchApp && details.notificationResponse != null) {
+      final payload = details.notificationResponse!.payload;
+      if (payload != null && payload.startsWith('emergency_')) {
+        final reportId = payload.replaceFirst('emergency_', '');
+        
+        // Tunggu sedikit agar animasi pindah halaman utama selesai
+        Future.delayed(const Duration(milliseconds: 850), () {
+          // Push halaman alarm menimpa Home/Login
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => EmergencyAlarmPage(reportId: reportId),
+            ),
+          );
+        });
+      }
     }
   }
 
