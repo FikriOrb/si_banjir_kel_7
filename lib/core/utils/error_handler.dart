@@ -36,6 +36,9 @@ class AppError {
       if (error.message.toLowerCase().contains('new password should be different from the old password')) {
         return 'Kata sandi baru harus berbeda dari kata sandi lama.';
       }
+      if (error.message.toLowerCase().contains('invalid login credentials')) {
+        return 'Email atau kata sandi salah.';
+      }
       return error.message; // Supabase auth error usually has readable message
     }
 

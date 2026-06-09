@@ -86,14 +86,25 @@ class _ReportBottomSheetState extends ConsumerState<ReportBottomSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                _reportType == 'flood' ? 'Lapor Genangan Banjir' : 'Lapor Tempat Evakuasi',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1E293B),
-                  letterSpacing: -0.2,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _reportType == 'flood' ? 'Lapor Genangan Banjir' : 'Lapor Tempat Evakuasi',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(LucideIcons.x, color: Color(0xFF64748B)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

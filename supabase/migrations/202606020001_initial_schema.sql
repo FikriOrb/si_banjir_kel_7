@@ -187,36 +187,6 @@ begin
         select count(*)::integer
         from public.report_validations rv
         where rv.report_id = target_report_id
-          and rv.vote_type = 'upvote'
-      ),
-      downvote_count = (
-        select count(*)::integer
-        from public.report_validations rv
-        where rv.report_id = target_report_id
-          and rv.vote_type = 'downvote'
-      ),
-      expires_at = case
-        when exists (
-          select 1
-          from public.report_validations rv
-          where rv.report_id = target_report_id
-            and rv.vote_type = 'upvote'
-            and rv.created_at >= now() - interval '4 hours'
-        )
-        then greatest(fr.expires_at, now() + interval '4 hours')
-        else fr.expires_at
-      end,
-      is_active = case
-        when fr.expires_at <= now() then false
-        else fr.is_active
-      end,
-      updated_at = now()
-  where fr.id = target_report_id;
-
-  return coalesce(new, old);
-end;
-$$;
-
 create trigger report_validations_refresh_counts
 after insert or update or delete on public.report_validations
 for each row execute function public.refresh_report_validation_counts();
