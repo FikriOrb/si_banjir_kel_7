@@ -10,6 +10,7 @@ import '../../features/map/data/repositories/flood_report_repository.dart';
 import '../../features/feed/data/repositories/report_comment_repository.dart';
 import '../../features/feed/presentation/widgets/report_comments_sheet.dart';
 import '../../features/feed/presentation/pages/feed_page.dart' show FullScreenImagePage, showReportPostDialog;
+import 'app_notification.dart';
 
 class ReportDetailBottomSheet extends ConsumerWidget {
   final FloodReport report;
@@ -375,8 +376,11 @@ class ReportDetailBottomSheet extends ConsumerWidget {
         ref.invalidate(activeFloodReportsProvider);
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal mengirim suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            title: 'Gagal',
+            message: 'Gagal mengirim suara: ${AppError.toMessage(e)}',
           );
         }
       }
@@ -413,8 +417,11 @@ class ReportDetailBottomSheet extends ConsumerWidget {
         ref.invalidate(activeFloodReportsProvider);
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menarik suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            title: 'Gagal',
+            message: 'Gagal menarik suara: ${AppError.toMessage(e)}',
           );
         }
       }

@@ -539,8 +539,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         ref.invalidate(activeFloodReportsProvider);
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal mengirim suara: ${AppError.toMessage(e)}'), backgroundColor: Colors.red),
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            title: 'Gagal',
+            message: 'Gagal mengirim suara: ${AppError.toMessage(e)}',
           );
         }
       }
@@ -577,7 +580,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         await ref.read(floodReportRepositoryProvider).removeVote(report.id);
         ref.invalidate(activeFloodReportsProvider);
       } catch (e) {
-        // Ignored
+        if (context.mounted) {
+          AppNotification.show(
+            context,
+            type: AppNotificationType.error,
+            title: 'Gagal',
+            message: 'Gagal menarik suara: ${AppError.toMessage(e)}',
+          );
+        }
       }
     }
   }
